@@ -6,6 +6,7 @@ import { TranscriptItem } from "@/app/types";
 import { useTranscript } from "@/app/contexts/TranscriptContext";
 import { DownloadIcon, ClipboardCopyIcon } from "@radix-ui/react-icons";
 import { GuardrailChip } from "./GuardrailChip";
+import jsPDF from 'jspdf';
 
 export interface TranscriptProps {
   userText: string;
@@ -69,6 +70,91 @@ function Transcript({
     }
   };
 
+  const handleDownloadTranscript = () => {
+    if (!transcriptRef.current) return;
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 20;
+    let y = 20;
+    const lineHeight = 7;
+    const maxWidth = pageWidth - (margin * 2);
+
+    // Add title
+    doc.setFontSize(16);
+    doc.text("911 Call Transcript", pageWidth / 2, y, { align: "center" });
+    y += lineHeight * 2;
+
+    // Add timestamp
+    doc.setFontSize(10);
+    const now = new Date();
+    doc.text(`Generated on: ${now.toLocaleString()}`, pageWidth / 2, y, { align: "center" });
+    y += lineHeight * 2;
+
+    // Helper function to add text with wrapping
+    const addWrappedText = (text: string, x: number, y: number, maxWidth: number) => {
+      const splitText = doc.splitTextToSize(text, maxWidth);
+      doc.text(splitText, x, y);
+      return splitText.length * lineHeight;
+    };
+
+    // Process transcript items
+    doc.setFontSize(12);
+    [...transcriptItems]
+      .sort((a, b) => a.createdAtMs - b.createdAtMs)
+      .forEach((item) => {
+        if (item.isHidden) return;
+
+        // Check if we need a new page
+        if (y > doc.internal.pageSize.getHeight() - margin) {
+          doc.addPage();
+          y = margin;
+        }
+
+        if (item.type === "MESSAGE") {
+          const isUser = item.role === "user";
+          const message = `${item.timestamp} - ${isUser ? "Caller" : "Dispatcher"}: ${item.title}`;
+          
+          // Add message with different styling for user/dispatcher
+          doc.setFont(isUser ? "helvetica" : "helvetica", "bold");
+          doc.setTextColor(isUser ? "#FF6600" : "#000000");
+          
+          // Add wrapped text and update y position
+          const textHeight = addWrappedText(message, margin, y, maxWidth);
+          y += textHeight + lineHeight;
+        } else if (item.type === "BREADCRUMB") {
+          // Add breadcrumb with indentation
+          doc.setFont("helvetica", "italic");
+          doc.setTextColor("#666666");
+          
+          const breadcrumbText = `[${item.timestamp}] ${item.title}`;
+          const textHeight = addWrappedText(breadcrumbText, margin, y, maxWidth);
+          y += textHeight + lineHeight;
+
+          if (item.expanded && item.data) {
+            const dataText = JSON.stringify(item.data, null, 2);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor("#000000");
+            
+            // Split JSON data into lines and add each line
+            const dataLines = dataText.split('\n');
+            dataLines.forEach(line => {
+              if (y > doc.internal.pageSize.getHeight() - margin) {
+                doc.addPage();
+                y = margin;
+              }
+              const lineHeight = addWrappedText(line, margin + 5, y, maxWidth - 5);
+              y += lineHeight;
+            });
+            y += lineHeight;
+          }
+        }
+      });
+
+    // Save the PDF
+    doc.save("911-call-transcript.pdf");
+  };
+
   return (
     <div className="flex flex-col flex-1 bg-[#1A1A1A] min-h-0 rounded-xl">
       <div className="flex flex-col flex-1 min-h-0">
@@ -76,11 +162,11 @@ function Transcript({
           <span className="font-semibold">Transcript</span>
           <div className="flex gap-x-2">
             <button
-              onClick={handleCopyTranscript}
+              onClick={handleDownloadTranscript}
               className="w-24 text-sm px-3 py-1 rounded-md bg-[#808080] hover:bg-[#FF6600] text-[#E0E0E0] flex items-center justify-center gap-x-1"
             >
-              <ClipboardCopyIcon />
-              {justCopied ? "Copied!" : "Copy"}
+              <DownloadIcon />
+              Download PDF
             </button>
             <button
               onClick={downloadRecording}

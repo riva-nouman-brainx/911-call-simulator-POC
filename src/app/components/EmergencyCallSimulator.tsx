@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import App from '../App';
 import { TranscriptProvider } from "@/app/contexts/TranscriptContext";
 import { EventProvider } from "@/app/contexts/EventContext";
@@ -24,6 +24,7 @@ const mockCallHistory = [
 const EmergencyCallSimulator: React.FC = () => {
   const [isCallActive, setIsCallActive] = useState(false);
   const [callStartTime, setCallStartTime] = useState<Date | null>(null);
+  const [callDuration, setCallDuration] = useState('00:00');
   const [showTranscriptionModal, setShowTranscriptionModal] = useState(false);
   const [selectedTranscription, setSelectedTranscription] = useState("");
   const [micPermission, setMicPermission] = useState<'granted' | 'denied' | 'prompt'>('prompt');
@@ -66,6 +67,23 @@ const EmergencyCallSimulator: React.FC = () => {
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  // Add timer effect
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    
+    if (isCallActive && callStartTime) {
+      timer = setInterval(() => {
+        setCallDuration(getCallDuration());
+      }, 1000);
+    }
+
+    return () => {
+      if (timer) {
+        clearInterval(timer);
+      }
+    };
+  }, [isCallActive, callStartTime]);
+
   const downloadCallRecords = () => {
     // To be implemented
     console.log("Downloading call records...");
@@ -88,7 +106,7 @@ const EmergencyCallSimulator: React.FC = () => {
         <h1 className="text-2xl font-bold text-[#23272f]">911 Non-Emergency Call Simulator</h1>
         {isCallActive && (
           <div className="mt-2">
-            <span className="text-[#23272f]">Call Duration: {getCallDuration()}</span>
+            <span className="text-[#23272f] font-semibold">Call Duration: {callDuration}</span>
           </div>
         )}
       </div>
