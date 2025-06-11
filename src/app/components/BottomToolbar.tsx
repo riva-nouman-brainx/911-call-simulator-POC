@@ -51,15 +51,15 @@ function BottomToolbar({
     const cursorClass = isConnecting ? "cursor-not-allowed" : "cursor-pointer";
 
     if (isConnected) {
-      // Connected -> label "Disconnect" -> red
-      return `bg-red-600 hover:bg-red-700 ${cursorClass} ${baseClasses}`;
+      // Connected -> label "Disconnect" -> orange
+      return `bg-[#de6d1c] hover:bg-[#c55c15] ${cursorClass} ${baseClasses}`;
     }
-    // Disconnected or connecting -> label is either "Connect" or "Connecting" -> black
-    return `bg-black hover:bg-gray-900 ${cursorClass} ${baseClasses}`;
+    // Disconnected or connecting -> label is either "Connect" or "Connecting" -> dark gray
+    return `bg-[#333333] hover:bg-[#404040] ${cursorClass} ${baseClasses}`;
   }
 
   return (
-    <div className="p-4 flex flex-row items-center justify-center gap-x-8">
+    <div className="p-4 flex flex-row items-center justify-center gap-x-8 bg-[#1A1A1A] text-[#E0E0E0] border-t border-[#333333]">
       <button
         onClick={onToggleConnection}
         className={getConnectionButtonClasses()}
@@ -90,9 +90,9 @@ function BottomToolbar({
           onTouchEnd={handleTalkButtonUp}
           disabled={!isPTTActive}
           className={
-            (isPTTUserSpeaking ? "bg-gray-300" : "bg-gray-200") +
+            (isPTTUserSpeaking ? "bg-[#de6d1c] text-white" : "bg-[#333333] text-[#E0E0E0]") +
             " py-1 px-4 cursor-pointer rounded-md" +
-            (!isPTTActive ? " bg-gray-100 text-gray-400" : "")
+            (!isPTTActive ? " bg-[#1A1A1A] text-[#666666]" : "")
           }
         >
           Talk
@@ -135,7 +135,7 @@ function BottomToolbar({
           id="codec-select"
           value={codec}
           onChange={handleCodecChange}
-          className="border border-gray-300 rounded-md px-2 py-1 focus:outline-none cursor-pointer"
+          className="border border-[#808080] rounded-md px-2 py-1 focus:outline-none cursor-pointer bg-[#1A1A1A] text-[#E0E0E0]"
         >
           <option value="opus">Opus (48 kHz)</option>
           <option value="pcmu">PCMU (8 kHz)</option>

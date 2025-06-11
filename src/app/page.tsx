@@ -1,14 +1,14 @@
 import React, { Suspense } from "react";
 import { TranscriptProvider } from "@/app/contexts/TranscriptContext";
 import { EventProvider } from "@/app/contexts/EventContext";
-import App from "./App";
+import EmergencyCallSimulator from './components/EmergencyCallSimulator';
 
-export default function Page() {
+export default function Home() {
   return (
     <Suspense fallback={<div>Loading...</div>}>
       <TranscriptProvider>
         <EventProvider>
-          <App />
+          <EmergencyCallSimulator />
         </EventProvider>
       </TranscriptProvider>
     </Suspense>
