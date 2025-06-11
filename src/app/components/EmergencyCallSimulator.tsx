@@ -1,10 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import App from '../App';
 import { TranscriptProvider } from "@/app/contexts/TranscriptContext";
 import { EventProvider } from "@/app/contexts/EventContext";
-import { useRouter } from 'next/navigation';
 
 // Temporary mock data for UI development
 const mockCallHistory = [
@@ -23,7 +22,6 @@ const mockCallHistory = [
 ];
 
 const EmergencyCallSimulator: React.FC = () => {
-  const router = useRouter();
   const [isCallActive, setIsCallActive] = useState(false);
   const [callStartTime, setCallStartTime] = useState<Date | null>(null);
   const [showTranscriptionModal, setShowTranscriptionModal] = useState(false);

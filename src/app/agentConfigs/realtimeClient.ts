@@ -83,7 +83,7 @@ export class RealtimeClient {
       context: this.#options.extraContext ?? {},
     });
 
-    // Immediately notify UI that we’ve started connecting.
+    // Immediately notify UI that we've started connecting.
     this.#events.emit('connection_change', 'connecting');
 
     // Forward every transport event as message for handler and watch for
@@ -94,7 +94,7 @@ export class RealtimeClient {
     transport.on('*', (ev: any) => {
       // Surface raw session.updated to console for debugging missing instructions.
       if (ev?.type === 'session.updated') {
-        // eslint-disable-next-line no-console
+        console.log('Session updated:', ev);
       }
       this.#events.emit('message', ev);
     });

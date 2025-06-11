@@ -112,7 +112,7 @@ function App({ isCallActive, onCallEnd }: AppProps) {
   const { startRecording, stopRecording, downloadRecording } =
     useAudioDownload();
 
-  const sendClientEvent = (eventObj: any, eventNameSuffix = '') => {
+  const sendClientEvent = (eventObj: any) => {
     if (!sdkClientRef.current) {
       console.error('SDK client not available', eventObj);
       return;
@@ -594,22 +594,16 @@ function App({ isCallActive, onCallEnd }: AppProps) {
     const id = uuidv4().slice(0, 32);
     addTranscriptMessage(id, "user", text, true);
 
-    sendClientEvent(
-      {
-        type: "conversation.item.create",
-        item: {
-          id,
-          type: "message",
-          role: "user",
-          content: [{ type: "input_text", text }],
-        },
+    sendClientEvent({
+      type: "conversation.item.create",
+      item: {
+        id,
+        type: "message",
+        role: "user",
+        content: [{ type: "input_text", text }],
       },
-      "(simulated user text message)"
-    );
-    sendClientEvent(
-      { type: "response.create" },
-      "(trigger response after simulated user text message)"
-    );
+    });
+    sendClientEvent({ type: "response.create" });
   };
 
   const updateSession = (shouldTriggerResponse: boolean = false) => {
@@ -682,9 +676,7 @@ function App({ isCallActive, onCallEnd }: AppProps) {
     cancelAssistantSpeech();
 
     setIsPTTUserSpeaking(true);
-    sendClientEvent({ type: "input_audio_buffer.clear" }, "clear PTT buffer");
-
-    // No placeholder; we'll rely on server transcript once ready.
+    sendClientEvent({ type: "input_audio_buffer.clear" });
   };
 
   const handleTalkButtonUp = () => {
@@ -692,8 +684,8 @@ function App({ isCallActive, onCallEnd }: AppProps) {
       return;
 
     setIsPTTUserSpeaking(false);
-    sendClientEvent({ type: "input_audio_buffer.commit" }, "commit PTT");
-    sendClientEvent({ type: "response.create" }, "trigger response PTT");
+    sendClientEvent({ type: "input_audio_buffer.commit" });
+    sendClientEvent({ type: "response.create" });
   };
 
   const onToggleConnection = () => {
@@ -803,14 +795,18 @@ function App({ isCallActive, onCallEnd }: AppProps) {
     if (sessionStatus === "CONNECTED" && audioElementRef.current?.srcObject) {
       // The remote audio stream from the audio element.
       const remoteStream = audioElementRef.current.srcObject as MediaStream;
-      startRecording(remoteStream);
+      if (isCallActive) {
+        startRecording(remoteStream);
+      }
     }
 
     // Clean up on unmount or when sessionStatus is updated.
     return () => {
-      stopRecording();
+      if (isCallActive) {
+        stopRecording();
+      }
     };
-  }, [sessionStatus]);
+  }, [sessionStatus, isCallActive]);
 
   const agentSetKey = searchParams.get("agentConfig") || "default";
 
