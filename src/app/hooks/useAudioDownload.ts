@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState, useCallback } from "react";
 import { convertWebMBlobToWav } from "../lib/audioUtils";
 
 function useAudioDownload() {
@@ -6,6 +6,9 @@ function useAudioDownload() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   // Ref to collect all recorded Blob chunks.
   const recordedChunksRef = useRef<Blob[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingError, setRecordingError] = useState<string | null>(null);
+  const lastSaveTimeRef = useRef<number>(Date.now());
 
   /**
    * Starts recording by combining the provided remote stream with
@@ -13,93 +16,133 @@ function useAudioDownload() {
    * @param remoteStream - The remote MediaStream (e.g., from the audio element).
    */
   const startRecording = async (remoteStream: MediaStream) => {
-    let micStream: MediaStream;
     try {
-      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch (err) {
-      console.error("Error getting microphone stream:", err);
-      // Fallback to an empty MediaStream if microphone access fails.
-      micStream = new MediaStream();
-    }
+      setRecordingError(null);
+      let micStream: MediaStream;
+      
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (err) {
+        console.error("Error getting microphone stream:", err);
+        setRecordingError("Failed to access microphone");
+        micStream = new MediaStream();
+      }
 
-    // Create an AudioContext to merge the streams.
-    const audioContext = new AudioContext();
-    const destination = audioContext.createMediaStreamDestination();
+      // Create an AudioContext to merge the streams.
+      const audioContext = new AudioContext();
+      const destination = audioContext.createMediaStreamDestination();
 
-    // Connect the remote audio stream.
-    try {
-      const remoteSource = audioContext.createMediaStreamSource(remoteStream);
-      remoteSource.connect(destination);
-    } catch (err) {
-      console.error("Error connecting remote stream to the audio context:", err);
-    }
+      // Connect the remote audio stream.
+      try {
+        const remoteSource = audioContext.createMediaStreamSource(remoteStream);
+        remoteSource.connect(destination);
+      } catch (err) {
+        console.error("Error connecting remote stream:", err);
+        setRecordingError("Failed to connect remote audio stream");
+      }
 
-    // Connect the microphone audio stream.
-    try {
-      const micSource = audioContext.createMediaStreamSource(micStream);
-      micSource.connect(destination);
-    } catch (err) {
-      console.error("Error connecting microphone stream to the audio context:", err);
-    }
+      // Connect the microphone audio stream.
+      try {
+        const micSource = audioContext.createMediaStreamSource(micStream);
+        micSource.connect(destination);
+      } catch (err) {
+        console.error("Error connecting microphone stream:", err);
+        setRecordingError("Failed to connect microphone stream");
+      }
 
-    const options = { mimeType: "audio/webm" };
-    try {
-      const mediaRecorder = new MediaRecorder(destination.stream, options);
-      mediaRecorder.ondataavailable = (event: BlobEvent) => {
-        if (event.data && event.data.size > 0) {
-          recordedChunksRef.current.push(event.data);
-        }
-      };
-      // Start recording without a timeslice.
-      mediaRecorder.start();
-      mediaRecorderRef.current = mediaRecorder;
+      const options = { mimeType: "audio/webm" };
+      try {
+        const mediaRecorder = new MediaRecorder(destination.stream, options);
+        
+        mediaRecorder.ondataavailable = (event: BlobEvent) => {
+          if (event.data && event.data.size > 0) {
+            recordedChunksRef.current.push(event.data);
+            
+            // Auto-save every 30 seconds
+            const now = Date.now();
+            if (now - lastSaveTimeRef.current > 30000) {
+              saveRecordingToCache();
+              lastSaveTimeRef.current = now;
+            }
+          }
+        };
+
+        mediaRecorder.onerror = (event) => {
+          console.error("MediaRecorder error:", event);
+          setRecordingError("Recording error occurred");
+        };
+
+        mediaRecorder.start(1000); // Collect data every second
+        mediaRecorderRef.current = mediaRecorder;
+        setIsRecording(true);
+      } catch (err) {
+        console.error("Error starting MediaRecorder:", err);
+        setRecordingError("Failed to start recording");
+      }
     } catch (err) {
-      console.error("Error starting MediaRecorder with combined stream:", err);
+      console.error("Error in startRecording:", err);
+      setRecordingError("Failed to initialize recording");
     }
   };
 
   /**
    * Stops the MediaRecorder, if active.
    */
-  const stopRecording = () => {
+  const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current) {
-      // Request any final data before stopping.
-      mediaRecorderRef.current.requestData();
-      mediaRecorderRef.current.stop();
-      mediaRecorderRef.current = null;
+      try {
+        mediaRecorderRef.current.requestData();
+        mediaRecorderRef.current.stop();
+        mediaRecorderRef.current = null;
+        setIsRecording(false);
+        
+        // Final save to cache
+        saveRecordingToCache();
+      } catch (err) {
+        console.error("Error stopping recording:", err);
+        setRecordingError("Failed to stop recording properly");
+      }
     }
-  };
+  }, []);
+
+  const saveRecordingToCache = useCallback(() => {
+    try {
+      const audioBlob = getAudioBlob();
+      if (audioBlob && audioBlob.size > 0) {
+        const url = URL.createObjectURL(audioBlob);
+        localStorage.setItem('tempRecording', url);
+        console.log('Recording saved to cache');
+      }
+    } catch (err) {
+      console.error("Error saving to cache:", err);
+    }
+  }, []);
+
+  const getAudioBlob = useCallback(() => {
+    if (recordedChunksRef.current.length === 0) return null;
+    return new Blob(recordedChunksRef.current, { type: 'audio/webm' });
+  }, []);
 
   /**
    * Initiates download of the recording after converting from WebM to WAV.
    * If the recorder is still active, we request its latest data before downloading.
    */
   const downloadRecording = async () => {
-    // If recording is still active, request the latest chunk.
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
-      // Request the current data.
-      mediaRecorderRef.current.requestData();
-      // Allow a short delay for ondataavailable to fire.
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-
-    if (recordedChunksRef.current.length === 0) {
-      console.warn("No recorded chunks found to download.");
-      return;
-    }
-    
-    // Combine the recorded chunks into a single WebM blob.
-    const webmBlob = new Blob(recordedChunksRef.current, { type: "audio/webm" });
-
     try {
-      // Convert the WebM blob into a WAV blob.
-      const wavBlob = await convertWebMBlobToWav(webmBlob);
-      const url = URL.createObjectURL(wavBlob);
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+        mediaRecorderRef.current.requestData();
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
 
-      // Generate a formatted datetime string (replace characters not allowed in filenames).
+      const audioBlob = getAudioBlob();
+      if (!audioBlob || audioBlob.size === 0) {
+        throw new Error("No recording data available");
+      }
+
+      const wavBlob = await convertWebMBlobToWav(audioBlob);
+      const url = URL.createObjectURL(wavBlob);
       const now = new Date().toISOString().replace(/[:.]/g, "-");
 
-      // Create an invisible anchor element and trigger the download.
       const a = document.createElement("a");
       a.style.display = "none";
       a.href = url;
@@ -108,14 +151,22 @@ function useAudioDownload() {
       a.click();
       document.body.removeChild(a);
 
-      // Clean up the blob URL after a short delay.
       setTimeout(() => URL.revokeObjectURL(url), 100);
     } catch (err) {
-      console.error("Error converting recording to WAV:", err);
+      console.error("Error downloading recording:", err);
+      setRecordingError("Failed to download recording");
     }
   };
 
-  return { startRecording, stopRecording, downloadRecording };
+  return {
+    startRecording,
+    stopRecording,
+    downloadRecording,
+    getAudioBlob,
+    isRecording,
+    recordingError,
+    saveRecordingToCache
+  };
 }
 
 export default useAudioDownload; 

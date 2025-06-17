@@ -3,18 +3,17 @@ import { SessionStatus } from "@/app/types";
 
 interface BottomToolbarProps {
   sessionStatus: SessionStatus;
-  onToggleConnection: () => void;
+  onToggleConnection: () => Promise<void>;
   isPTTActive: boolean;
   setIsPTTActive: (val: boolean) => void;
   isPTTUserSpeaking: boolean;
   handleTalkButtonDown: () => void;
   handleTalkButtonUp: () => void;
-  isEventsPaneExpanded: boolean;
-  setIsEventsPaneExpanded: (val: boolean) => void;
   isAudioPlaybackEnabled: boolean;
   setIsAudioPlaybackEnabled: (val: boolean) => void;
   codec: string;
   onCodecChange: (newCodec: string) => void;
+  isDisconnecting?: boolean;
 }
 
 function BottomToolbar({
@@ -25,12 +24,11 @@ function BottomToolbar({
   isPTTUserSpeaking,
   handleTalkButtonDown,
   handleTalkButtonUp,
-  isEventsPaneExpanded,
-  setIsEventsPaneExpanded,
   isAudioPlaybackEnabled,
   setIsAudioPlaybackEnabled,
   codec,
   onCodecChange,
+  isDisconnecting = false,
 }: BottomToolbarProps) {
   const isConnected = sessionStatus === "CONNECTED";
   const isConnecting = sessionStatus === "CONNECTING";
@@ -41,6 +39,7 @@ function BottomToolbar({
   };
 
   function getConnectionButtonLabel() {
+    if (isDisconnecting) return "Disconnecting...";
     if (isConnected) return "Disconnect";
     if (isConnecting) return "Connecting...";
     return "Connect";
@@ -48,23 +47,39 @@ function BottomToolbar({
 
   function getConnectionButtonClasses() {
     const baseClasses = "text-white text-base p-2 w-36 rounded-md h-full";
-    const cursorClass = isConnecting ? "cursor-not-allowed" : "cursor-pointer";
+    const cursorClass = (isConnecting || isDisconnecting) ? "cursor-not-allowed" : "cursor-pointer";
 
-    if (isConnected) {
+    if (isConnected && !isDisconnecting) {
       // Connected -> label "Disconnect" -> orange
       return `bg-[#de6d1c] hover:bg-[#c55c15] ${cursorClass} ${baseClasses}`;
     }
-    // Disconnected or connecting -> label is either "Connect" or "Connecting" -> dark gray
+    // Disconnected, connecting, or disconnecting -> dark gray
     return `bg-[#333333] hover:bg-[#404040] ${cursorClass} ${baseClasses}`;
   }
+
+  const handleDisconnect = async () => {
+    try {
+      await onToggleConnection();
+    } catch (error) {
+      console.error('Error during disconnection:', error);
+    }
+  };
 
   return (
     <div className="p-4 flex flex-row items-center justify-center gap-x-8 bg-[#1A1A1A] text-[#E0E0E0] border-t border-[#333333]">
       <button
-        onClick={onToggleConnection}
+        onClick={handleDisconnect}
         className={getConnectionButtonClasses()}
-        disabled={isConnecting}
+        disabled={isConnecting || isDisconnecting}
       >
+        {isDisconnecting && (
+          <span className="inline-block mr-2">
+            <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          </span>
+        )}
         {getConnectionButtonLabel()}
       </button>
 
@@ -113,19 +128,6 @@ function BottomToolbar({
           className="flex items-center cursor-pointer"
         >
           Audio playback
-        </label>
-      </div>
-
-      <div className="flex flex-row items-center gap-2">
-        <input
-          id="logs"
-          type="checkbox"
-          checked={isEventsPaneExpanded}
-          onChange={(e) => setIsEventsPaneExpanded(e.target.checked)}
-          className="w-4 h-4"
-        />
-        <label htmlFor="logs" className="flex items-center cursor-pointer">
-          Logs
         </label>
       </div>
 

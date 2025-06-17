@@ -42,9 +42,10 @@ import useAudioDownload from "./hooks/useAudioDownload";
 interface AppProps {
   isCallActive: boolean;
   onCallEnd: () => void;
+  callStartTime: Date | null;
 }
 
-function App({ isCallActive, onCallEnd }: AppProps) {
+function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
   const searchParams = useSearchParams()!;
 
   // Use urlCodec directly from URL search params (default: "opus")
@@ -109,8 +110,18 @@ function App({ isCallActive, onCallEnd }: AppProps) {
   );
 
   // Initialize the recording hook.
-  const { startRecording, stopRecording, downloadRecording } =
-    useAudioDownload();
+  const { 
+    startRecording, 
+    stopRecording, 
+    downloadRecording, 
+    getAudioBlob,
+    isRecording,
+    recordingError,
+    saveRecordingToCache 
+  } = useAudioDownload();
+
+  // Add recording status indicator
+  const [showRecordingStatus, setShowRecordingStatus] = useState(false);
 
   const sendClientEvent = (eventObj: any) => {
     if (!sdkClientRef.current) {
@@ -164,9 +175,6 @@ function App({ isCallActive, onCallEnd }: AppProps) {
 
   useEffect(() => {
     if (sessionStatus === "CONNECTED") {
-      console.log(
-        `updatingSession, isPTTACtive=${isPTTActive} sessionStatus=${sessionStatus}`
-      );
       updateSession();
     }
   }, [isPTTActive]);
@@ -579,43 +587,216 @@ function App({ isCallActive, onCallEnd }: AppProps) {
     }
   };
 
-  const disconnectFromRealtime = () => {
-    if (sdkClientRef.current) {
-      sdkClientRef.current.disconnect();
-      sdkClientRef.current = null;
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [isAIFinished, setIsAIFinished] = useState(false);
+
+  // Add effect to detect when AI finishes speaking
+  useEffect(() => {
+    const lastAssistantMessage = [...transcriptItemsRef.current]
+      .reverse()
+      .find(item => item.role === 'assistant');
+
+    if (lastAssistantMessage && lastAssistantMessage.status === 'DONE') {
+      setIsAIFinished(true);
     }
-    setSessionStatus("DISCONNECTED");
-    setIsPTTUserSpeaking(false);
+  }, [transcriptItemsRef.current]);
 
-    logClientEvent({}, "disconnected");
-  };
+  // Update the recording effect
+  useEffect(() => {
+    if (sessionStatus === "CONNECTED" && audioElementRef.current?.srcObject) {
+      const remoteStream = audioElementRef.current.srcObject as MediaStream;
+      if (isCallActive && remoteStream.active) {
+        startRecording(remoteStream);
+        setShowRecordingStatus(true);
+      }
+    }
 
-  const sendSimulatedUserMessage = (text: string) => {
-    const id = uuidv4().slice(0, 32);
-    addTranscriptMessage(id, "user", text, true);
+    return () => {
+      if (isCallActive) {
+        stopRecording();
+        setShowRecordingStatus(false);
+      }
+    };
+  }, [sessionStatus, isCallActive]);
 
-    sendClientEvent({
-      type: "conversation.item.create",
-      item: {
-        id,
-        type: "message",
-        role: "user",
-        content: [{ type: "input_text", text }],
-      },
-    });
-    sendClientEvent({ type: "response.create" });
-  };
+  // Add recording error effect
+  useEffect(() => {
+    if (recordingError) {
+      console.error('Recording error:', recordingError);
+      // Show error to user
+      alert(`Recording error: ${recordingError}`);
+    }
+  }, [recordingError]);
 
-  const updateSession = (shouldTriggerResponse: boolean = false) => {
-    // In SDK scenarios RealtimeClient manages session config automatically.
-    if (sdkClientRef.current) {
-      if (shouldTriggerResponse) {
-        sendSimulatedUserMessage('hi');
+  // Update the disconnect handler
+  const handleDisconnect = async () => {
+    if (isDisconnecting) return;
+    setIsDisconnecting(true);
+
+    try {
+      // Wait for AI to finish if it hasn't already
+      if (!isAIFinished) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
 
-      // Reflect Push-to-Talk UI state by (de)activating server VAD on the
-      // backend. The Realtime SDK supports live session updates via the
-      // `session.update` event.
+      // Stop recording first
+      stopRecording();
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for final data
+
+      // Get audio blob and transcript
+      const audioBlob = getAudioBlob();
+      const transcriptText = transcriptItemsRef.current.map(item => item.title).join('\n');
+      
+      const now = new Date();
+      const callData = {
+        start_time: callStartTime?.toISOString() || now.toISOString(),
+        end_time: now.toISOString(),
+        duration: callStartTime ? Math.floor((now.getTime() - callStartTime.getTime()) / 1000) : 0,
+        caller_name: 'Unknown',
+        caller_phone: '',
+        caller_address: '',
+        description: '',
+        priority_level: 1,
+        call_type: 'emergency',
+        call_status: 'completed'
+      };
+
+      // First disconnect from realtime
+      if (sdkClientRef.current) {
+        sdkClientRef.current.disconnect();
+        sdkClientRef.current = null;
+      }
+      setSessionStatus("DISCONNECTED");
+      setIsPTTUserSpeaking(false);
+      logClientEvent({}, "disconnected");
+      onCallEnd();
+
+      // Then try to save the call data
+      if (audioBlob && audioBlob.size > 0) {
+        const formData = new FormData();
+        formData.append('audio', audioBlob, 'call.webm');
+        formData.append('transcript', transcriptText);
+        formData.append('callData', JSON.stringify(callData));
+
+        try {
+          const response = await fetch('/api/emergency-calls/save', {
+            method: 'POST',
+            body: formData,
+          });
+          
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(`Failed to save call data: ${errorData.message || response.statusText}`);
+          }
+
+          const result = await response.json();
+
+          // Wait for the database to be updated
+          await new Promise(resolve => setTimeout(resolve, 1000));
+
+          // Now process the transcript
+          if (result.id) {
+            const processResponse = await fetch(`/api/emergency-calls/process-transcript/${result.id}`, {
+              method: 'POST'
+            });
+
+            if (!processResponse.ok) {
+              throw new Error('Failed to process transcript');
+            }
+          }
+        } catch (err) {
+          console.error('Failed to save call:', err);
+          // Try to recover from cache
+          const cachedRecording = localStorage.getItem('tempRecording');
+          if (cachedRecording) {
+            try {
+              const response = await fetch(cachedRecording);
+              const cachedBlob = await response.blob();
+              if (cachedBlob.size > 0) {
+                const formData = new FormData();
+                formData.append('audio', cachedBlob, 'call.webm');
+                formData.append('transcript', transcriptText);
+                formData.append('callData', JSON.stringify(callData));
+                
+                const retryResponse = await fetch('/api/emergency-calls/save', {
+                  method: 'POST',
+                  body: formData,
+                });
+                
+                if (retryResponse.ok) {
+                  const retryResult = await retryResponse.json();
+                  
+                  // Process transcript after successful save
+                  if (retryResult.id) {
+                    await fetch(`/api/emergency-calls/process-transcript/${retryResult.id}`, {
+                      method: 'POST'
+                    });
+                  }
+                }
+              }
+            } catch (cacheErr) {
+              console.error('Failed to save from cache:', cacheErr);
+            }
+          }
+          alert('Call was disconnected but failed to save recording. Please check the console for details.');
+        }
+      } else {
+        // Create a minimal call record without audio
+        try {
+          const response = await fetch('/api/emergency-calls/save', {
+            method: 'POST',
+            body: JSON.stringify({
+              ...callData,
+              description: 'Call disconnected without recording'
+            }),
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (!response.ok) {
+            throw new Error('Failed to save minimal call record');
+          }
+
+          const result = await response.json();
+          // Process transcript for minimal call record
+          if (result.id) {
+            await fetch(`/api/emergency-calls/process-transcript/${result.id}`, {
+              method: 'POST'
+            });
+          }
+        } catch (err) {
+          console.error('Failed to save minimal call record:', err);
+        }
+      }
+    } catch (error) {
+      console.error('Error during disconnection:', error);
+      alert('An error occurred during disconnection. Please check the console for details.');
+    } finally {
+      setIsDisconnecting(false);
+      setIsAIFinished(false);
+      setShowRecordingStatus(false);
+    }
+  };
+
+  // Add missing functions
+  const updateSession = (shouldTriggerResponse: boolean = false) => {
+    if (sdkClientRef.current) {
+      if (shouldTriggerResponse) {
+        const id = uuidv4().slice(0, 32);
+        addTranscriptMessage(id, "user", "hi", true);
+        sendClientEvent({
+          type: "conversation.item.create",
+          item: {
+            id,
+            type: "message",
+            role: "user",
+            content: [{ type: "input_text", text: "hi" }],
+          },
+        });
+        sendClientEvent({ type: "response.create" });
+      }
+
       const client = sdkClientRef.current;
       if (client) {
         const turnDetection = isPTTActive
@@ -638,24 +819,27 @@ function App({ isCallActive, onCallEnd }: AppProps) {
           console.warn('Failed to update session', err);
         }
       }
-      return;
     }
   };
 
-  const cancelAssistantSpeech = async () => {
-    // Interrupts server response and clears local audio.
-    if (sdkClientRef.current) {
-      try {
-        sdkClientRef.current.interrupt();
-      } catch (err) {
-        console.error('Failed to interrupt', err);
-      }
-    }
+  const handleAgentChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newAgentConfig = e.target.value;
+    const url = new URL(window.location.toString());
+    url.searchParams.set("agentConfig", newAgentConfig);
+    window.location.replace(url.toString());
+  };
+
+  const handleSelectedAgentChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newAgentName = e.target.value;
+    handleDisconnect();
+    setSelectedAgentName(newAgentName);
   };
 
   const handleSendTextMessage = () => {
     if (!userText.trim()) return;
-    cancelAssistantSpeech();
+    if (sdkClientRef.current) {
+      sdkClientRef.current.interrupt();
+    }
 
     if (!sdkClientRef.current) {
       console.error('SDK client not available');
@@ -671,9 +855,19 @@ function App({ isCallActive, onCallEnd }: AppProps) {
     setUserText("");
   };
 
+  const onToggleConnection = async () => {
+    if (sessionStatus === "CONNECTED" || sessionStatus === "CONNECTING") {
+      await handleDisconnect();
+    } else {
+      connectToRealtime();
+    }
+  };
+
   const handleTalkButtonDown = () => {
     if (sessionStatus !== 'CONNECTED' || sdkClientRef.current == null) return;
-    cancelAssistantSpeech();
+    if (sdkClientRef.current) {
+      sdkClientRef.current.interrupt();
+    }
 
     setIsPTTUserSpeaking(true);
     sendClientEvent({ type: "input_audio_buffer.clear" });
@@ -688,128 +882,15 @@ function App({ isCallActive, onCallEnd }: AppProps) {
     sendClientEvent({ type: "response.create" });
   };
 
-  const onToggleConnection = () => {
-    if (sessionStatus === "CONNECTED" || sessionStatus === "CONNECTING") {
-      disconnectFromRealtime();
-      setSessionStatus("DISCONNECTED");
-    } else {
-      connectToRealtime();
-    }
-  };
+  const agentSetKey = searchParams.get("agentConfig") || "default";
 
-  const handleAgentChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newAgentConfig = e.target.value;
-    const url = new URL(window.location.toString());
-    url.searchParams.set("agentConfig", newAgentConfig);
-    window.location.replace(url.toString());
-  };
-
-  const handleSelectedAgentChange = (
-    e: React.ChangeEvent<HTMLSelectElement>
-  ) => {
-    const newAgentName = e.target.value;
-    // Reconnect session with the newly selected agent as root so that tool
-    // execution works correctly.
-    disconnectFromRealtime();
-    setSelectedAgentName(newAgentName);
-    // connectToRealtime will be triggered by effect watching selectedAgentName
-  };
-
-  // Instead of using setCodec, we update the URL and refresh the page when codec changes
   const handleCodecChange = (newCodec: string) => {
     const url = new URL(window.location.toString());
     url.searchParams.set("codec", newCodec);
     window.location.replace(url.toString());
   };
 
-  useEffect(() => {
-    const storedPushToTalkUI = localStorage.getItem("pushToTalkUI");
-    if (storedPushToTalkUI) {
-      setIsPTTActive(storedPushToTalkUI === "true");
-    }
-    const storedLogsExpanded = localStorage.getItem("logsExpanded");
-    if (storedLogsExpanded) {
-      setIsEventsPaneExpanded(storedLogsExpanded === "true");
-    }
-    const storedAudioPlaybackEnabled = localStorage.getItem(
-      "audioPlaybackEnabled"
-    );
-    if (storedAudioPlaybackEnabled) {
-      setIsAudioPlaybackEnabled(storedAudioPlaybackEnabled === "true");
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem("pushToTalkUI", isPTTActive.toString());
-  }, [isPTTActive]);
-
-  useEffect(() => {
-    localStorage.setItem("logsExpanded", isEventsPaneExpanded.toString());
-  }, [isEventsPaneExpanded]);
-
-  useEffect(() => {
-    localStorage.setItem(
-      "audioPlaybackEnabled",
-      isAudioPlaybackEnabled.toString()
-    );
-  }, [isAudioPlaybackEnabled]);
-
-  useEffect(() => {
-    if (audioElementRef.current) {
-      if (isAudioPlaybackEnabled) {
-        audioElementRef.current.muted = false;
-        audioElementRef.current.play().catch((err) => {
-          console.warn("Autoplay may be blocked by browser:", err);
-        });
-      } else {
-        // Mute and pause to avoid brief audio blips before pause takes effect.
-        audioElementRef.current.muted = true;
-        audioElementRef.current.pause();
-      }
-    }
-
-    // Toggle server-side audio stream mute so bandwidth is saved when the
-    // user disables playback. Only supported when using the SDK path.
-    if (sdkClientRef.current) {
-      try {
-        sdkClientRef.current.mute(!isAudioPlaybackEnabled);
-      } catch (err) {
-        console.warn('Failed to toggle SDK mute', err);
-      }
-    }
-  }, [isAudioPlaybackEnabled]);
-
-  // Ensure mute state is propagated to transport right after we connect or
-  // whenever the SDK client reference becomes available.
-  useEffect(() => {
-    if (sessionStatus === 'CONNECTED' && sdkClientRef.current) {
-      try {
-        sdkClientRef.current.mute(!isAudioPlaybackEnabled);
-      } catch (err) {
-        console.warn('mute sync after connect failed', err);
-      }
-    }
-  }, [sessionStatus, isAudioPlaybackEnabled]);
-
-  useEffect(() => {
-    if (sessionStatus === "CONNECTED" && audioElementRef.current?.srcObject) {
-      // The remote audio stream from the audio element.
-      const remoteStream = audioElementRef.current.srcObject as MediaStream;
-      if (isCallActive) {
-        startRecording(remoteStream);
-      }
-    }
-
-    // Clean up on unmount or when sessionStatus is updated.
-    return () => {
-      if (isCallActive) {
-        stopRecording();
-      }
-    };
-  }, [sessionStatus, isCallActive]);
-
-  const agentSetKey = searchParams.get("agentConfig") || "default";
-
+  // Add recording status indicator to the UI
   return (
     <div className="text-base flex flex-col h-screen bg-[#1A1A1A] text-white relative">
       <div className="p-5 text-lg font-semibold flex justify-between items-center bg-[#1A1A1A] border-b border-[#333333]">
@@ -837,6 +918,7 @@ function App({ isCallActive, onCallEnd }: AppProps) {
             Realtime API <span className="text-[#de6d1c]">Agents</span>
           </div>
         </div>
+        {/*
         <div className="flex items-center">
           <label className="flex items-center text-base gap-1 mr-2 font-medium">
             Scenario
@@ -898,6 +980,7 @@ function App({ isCallActive, onCallEnd }: AppProps) {
             </div>
           )}
         </div>
+        */}
       </div>
 
       <div className="flex flex-1 gap-2 px-2 overflow-hidden relative">
@@ -912,7 +995,7 @@ function App({ isCallActive, onCallEnd }: AppProps) {
           }
         />
 
-        <Events isExpanded={isEventsPaneExpanded} />
+        {/* <Events isExpanded={isEventsPaneExpanded} /> */}
       </div>
 
       <BottomToolbar
@@ -923,13 +1006,19 @@ function App({ isCallActive, onCallEnd }: AppProps) {
         isPTTUserSpeaking={isPTTUserSpeaking}
         handleTalkButtonDown={handleTalkButtonDown}
         handleTalkButtonUp={handleTalkButtonUp}
-        isEventsPaneExpanded={isEventsPaneExpanded}
-        setIsEventsPaneExpanded={setIsEventsPaneExpanded}
         isAudioPlaybackEnabled={isAudioPlaybackEnabled}
         setIsAudioPlaybackEnabled={setIsAudioPlaybackEnabled}
         codec={urlCodec}
         onCodecChange={handleCodecChange}
+        isDisconnecting={isDisconnecting}
       />
+
+      {showRecordingStatus && (
+        <div className="fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-full flex items-center gap-2 z-50">
+          <div className="w-3 h-3 bg-white rounded-full animate-pulse"></div>
+          Recording
+        </div>
+      )}
     </div>
   );
 }
