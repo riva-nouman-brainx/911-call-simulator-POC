@@ -141,8 +141,11 @@ const EmergencyCallSimulator: React.FC = () => {
                   method: 'POST'
                 });
 
+
                 if (!processResponse.ok) {
+                  console.log('Transcript processing response:', processResponse);
                   throw new Error('Failed to process transcript emergency call simulator');
+
                 }
 
                 // Check if the call has been processed by looking for populated fields
