@@ -5,15 +5,6 @@ import App from '../App';
 import { TranscriptProvider } from "@/app/contexts/TranscriptContext";
 import { EventProvider } from "@/app/contexts/EventContext";
 
-interface Call {
-  id: string;
-  transcript_url: string;
-  caller_name: string | null;
-  caller_address: string | null;
-  caller_phone: string | null;
-  description: string | null;
-}
-
 const EmergencyCallSimulator: React.FC = () => {
   const [isCallActive, setIsCallActive] = useState(false);
   const [callStartTime, setCallStartTime] = useState<Date | null>(null);
@@ -33,7 +24,6 @@ const EmergencyCallSimulator: React.FC = () => {
   const MAX_RETRIES = 3;
   const RETRY_DELAY = 1000; // 1 second
   const POLLING_INTERVAL = 2000; // 2 seconds
-  const [currentCall, setCurrentCall] = useState<Call | null>(null);
 
   const fetchCallHistory = async (retryAttempt = 0) => {
     try {
@@ -59,7 +49,7 @@ const EmergencyCallSimulator: React.FC = () => {
         setCallHistory([]);
         throw new Error('Invalid data format');
       }
-    } catch (err) {
+    } catch {
       setCallHistory([]);
       
       // Implement retry logic
@@ -241,15 +231,10 @@ const EmergencyCallSimulator: React.FC = () => {
       const text = await res.text();
       setTranscriptText(text);
       setShowTranscriptionModal(true);
-    } catch (err) {
+    } catch {
       setTranscriptText('Failed to load transcript.');
       setShowTranscriptionModal(true);
     }
-  };
-
-  const handleError = (error: Error) => {
-    console.error('Error:', error);
-    // Handle error appropriately
   };
 
   return (

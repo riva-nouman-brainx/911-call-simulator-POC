@@ -2,8 +2,7 @@ import { NextResponse } from 'next/server';
 import { processCallTranscript } from '@/services/transcriptProcessor';
 
 export async function POST(
-  request: Request,
-  { params: _ }: { params: { id: string } }
+  request: Request
 ) {
   try {
     // Get the call ID from the URL instead of params

@@ -95,8 +95,6 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
   const [sessionStatus, setSessionStatus] =
     useState<SessionStatus>("DISCONNECTED");
 
-  const [isEventsPaneExpanded, setIsEventsPaneExpanded] =
-    useState<boolean>(true);
   const [userText, setUserText] = useState<string>("");
   const [isPTTActive, setIsPTTActive] = useState<boolean>(false);
   const [isPTTUserSpeaking, setIsPTTUserSpeaking] = useState<boolean>(false);
@@ -817,19 +815,6 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
         }
       }
     }
-  };
-
-  const handleAgentChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newAgentConfig = e.target.value;
-    const url = new URL(window.location.toString());
-    url.searchParams.set("agentConfig", newAgentConfig);
-    window.location.replace(url.toString());
-  };
-
-  const handleSelectedAgentChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newAgentName = e.target.value;
-    handleDisconnect();
-    setSelectedAgentName(newAgentName);
   };
 
   const handleSendTextMessage = () => {

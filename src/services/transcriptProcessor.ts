@@ -36,8 +36,9 @@ export async function processCallTranscript(callId: string): Promise<void> {
 
     const callRecord = result.rows[0];
 
-    // Fetch the transcript content
-    const transcriptResponse = await fetch(callRecord.transcript_url);
+    // Fetch the transcript content through our proxy
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const transcriptResponse = await fetch(`${baseUrl}/api/proxy/transcript?url=${encodeURIComponent(callRecord.transcript_url)}`);
     if (!transcriptResponse.ok) {
       throw new Error(`Failed to fetch transcript from URL: ${callRecord.transcript_url}`);
     }
