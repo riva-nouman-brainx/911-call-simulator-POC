@@ -23,7 +23,7 @@ export async function POST(
   } catch (error) {
     console.error('Error in transcript processing:', error);
     return NextResponse.json(
-      { error: 'Failed to process transcript process transcript route', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: error },
       { status: 500 }
     );
   }
