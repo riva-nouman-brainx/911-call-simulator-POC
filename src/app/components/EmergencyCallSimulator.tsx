@@ -29,8 +29,10 @@ const EmergencyCallSimulator: React.FC = () => {
   const [isStartingCall, setIsStartingCall] = useState(false);
   const [shouldRefreshHistory, setShouldRefreshHistory] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [isProcessingTranscript, setIsProcessingTranscript] = useState(false);
   const MAX_RETRIES = 3;
   const RETRY_DELAY = 1000; // 1 second
+  const POLLING_INTERVAL = 2000; // 2 seconds
   const [currentCall, setCurrentCall] = useState<Call | null>(null);
 
   const fetchCallHistory = async (retryAttempt = 0) => {
@@ -110,6 +112,7 @@ const EmergencyCallSimulator: React.FC = () => {
     }
     
     try {
+      setIsProcessingTranscript(true);
       // Add a longer delay to ensure the call is fully saved
       await new Promise(resolve => setTimeout(resolve, 2000));
       
@@ -127,51 +130,76 @@ const EmergencyCallSimulator: React.FC = () => {
         const mostRecentCall = calls[0];
         console.log('Found most recent call:', mostRecentCall);
         
-        // Verify the call has a transcript URL before processing
-        if (!mostRecentCall.transcript_url) {
-          console.log('Waiting for transcript URL to be available...');
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-          // Fetch again to get updated call data
-          const updatedResponse = await fetch('/api/emergency-calls/all', {
-            cache: 'no-store',
-            headers: {
-              'Cache-Control': 'no-cache',
-              'Pragma': 'no-cache'
-            }
-          });
-          const updatedCalls = await updatedResponse.json();
-          if (updatedCalls && updatedCalls.length > 0) {
-            const updatedCall = updatedCalls[0];
-            if (updatedCall.transcript_url) {
-              console.log('Processing transcript for call:', updatedCall.id);
-              const processResponse = await fetch(`/api/emergency-calls/process-transcript/${updatedCall.id}`, {
-                method: 'POST'
-              });
-
-              if (!processResponse.ok) {
-                throw new Error('Failed to process transcript');
+        // Start polling for transcript processing
+        const pollForTranscript = async () => {
+          try {
+            const updatedResponse = await fetch('/api/emergency-calls/all', {
+              cache: 'no-store',
+              headers: {
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
               }
-            } else {
-              console.log('Transcript URL still not available');
+            });
+            const updatedCalls = await updatedResponse.json();
+            
+            if (updatedCalls && updatedCalls.length > 0) {
+              const updatedCall = updatedCalls[0];
+              
+              if (updatedCall.transcript_url) {
+                console.log('Processing transcript for call:', updatedCall.id);
+                const processResponse = await fetch(`/api/emergency-calls/process-transcript/${updatedCall.id}`, {
+                  method: 'POST'
+                });
+
+                if (!processResponse.ok) {
+                  throw new Error('Failed to process transcript');
+                }
+
+                // Check if the call has been processed by looking for populated fields
+                const finalResponse = await fetch('/api/emergency-calls/all', {
+                  cache: 'no-store',
+                  headers: {
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache'
+                  }
+                });
+                const finalCalls = await finalResponse.json();
+                const finalCall = finalCalls[0];
+
+                if (finalCall && (finalCall.caller_name || finalCall.caller_address || finalCall.caller_phone || finalCall.description)) {
+                  setIsProcessingTranscript(false);
+                  setShouldRefreshHistory(true);
+                  return true;
+                }
+              }
+            }
+            return false;
+          } catch (error) {
+            console.error('Error polling for transcript:', error);
+            return false;
+          }
+        };
+
+        // Poll until transcript is processed or timeout
+        let attempts = 0;
+        const maxAttempts = 30; // 1 minute maximum (30 * 2 seconds)
+        
+        const pollInterval = setInterval(async () => {
+          attempts++;
+          const isProcessed = await pollForTranscript();
+          
+          if (isProcessed || attempts >= maxAttempts) {
+            clearInterval(pollInterval);
+            if (attempts >= maxAttempts) {
+              console.log('Transcript processing timed out');
+              setIsProcessingTranscript(false);
             }
           }
-        } else {
-          console.log('Processing transcript for call:', mostRecentCall.id);
-          const processResponse = await fetch(`/api/emergency-calls/process-transcript/${mostRecentCall.id}`, {
-            method: 'POST'
-          });
-
-          if (!processResponse.ok) {
-            throw new Error('Failed to process transcript');
-          }
-        }
-
-        // Refresh the call history after processing
-        setShouldRefreshHistory(true);
+        }, POLLING_INTERVAL);
       }
     } catch (error) {
       console.error('Error in call end processing:', error);
+      setIsProcessingTranscript(false);
     }
   };
 
@@ -249,9 +277,9 @@ const EmergencyCallSimulator: React.FC = () => {
                       <button
                         onClick={handleManualRefresh}
                         className="refresh-button bg-[#23272f] hover:bg-[#de6d1c] hover:text-[#23272f] text-[#de6d1c] border border-[#de6d1c] px-3 py-1 rounded flex items-center gap-1 font-medium transition-colors"
-                        disabled={isLoading}
+                        disabled={isLoading || isProcessingTranscript}
                       >
-                        {isLoading ? (
+                        {isLoading || isProcessingTranscript ? (
                           <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-[#de6d1c]"></div>
                         ) : (
                           <span role="img" aria-label="refresh">🔄</span>
@@ -260,9 +288,12 @@ const EmergencyCallSimulator: React.FC = () => {
                       </button>
                     </div>
                   </div>
-                  {isLoading ? (
-                    <div className="flex justify-center items-center py-12">
-                      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#de6d1c]"></div>
+                  {isLoading || isProcessingTranscript ? (
+                    <div className="flex flex-col justify-center items-center py-12">
+                      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#de6d1c] mb-4"></div>
+                      {isProcessingTranscript && (
+                        <p className="text-[#ededed]">Processing transcript...</p>
+                      )}
                     </div>
                   ) : retryCount > 0 ? (
                     <div className="text-center py-12">
