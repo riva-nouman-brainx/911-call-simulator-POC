@@ -5,15 +5,6 @@ import App from '../App';
 import { TranscriptProvider } from "@/app/contexts/TranscriptContext";
 import { EventProvider } from "@/app/contexts/EventContext";
 
-interface Call {
-  id: string;
-  transcript_url: string;
-  caller_name: string | null;
-  caller_address: string | null;
-  caller_phone: string | null;
-  description: string | null;
-}
-
 const EmergencyCallSimulator: React.FC = () => {
   const [isCallActive, setIsCallActive] = useState(false);
   const [callStartTime, setCallStartTime] = useState<Date | null>(null);
@@ -31,7 +22,6 @@ const EmergencyCallSimulator: React.FC = () => {
   const [retryCount, setRetryCount] = useState(0);
   const MAX_RETRIES = 3;
   const RETRY_DELAY = 1000; // 1 second
-  const [currentCall, setCurrentCall] = useState<Call | null>(null);
 
   const fetchCallHistory = async (retryAttempt = 0) => {
     try {
@@ -59,6 +49,7 @@ const EmergencyCallSimulator: React.FC = () => {
       }
     } catch (err) {
       setCallHistory([]);
+      console.log('Error fetching call history:', err);
       
       // Implement retry logic
       if (retryAttempt < MAX_RETRIES) {
@@ -214,6 +205,7 @@ const EmergencyCallSimulator: React.FC = () => {
       setTranscriptText(text);
       setShowTranscriptionModal(true);
     } catch (err) {
+      console.log('Error loading transcript:', err);
       setTranscriptText('Failed to load transcript.');
       setShowTranscriptionModal(true);
     }
