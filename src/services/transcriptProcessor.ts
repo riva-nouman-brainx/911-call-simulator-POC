@@ -22,6 +22,12 @@ interface TranscriptAnalysis {
   description: string | null;
 }
 
+function getBaseUrl() {
+  if (process.env.NEXT_PUBLIC_BASE_URL) return process.env.NEXT_PUBLIC_BASE_URL;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return 'http://localhost:3000';
+}
+
 export async function processCallTranscript(callId: string): Promise<void> {
   try {
     // Fetch the call record
@@ -37,7 +43,7 @@ export async function processCallTranscript(callId: string): Promise<void> {
     const callRecord = result.rows[0];
 
     // Fetch the transcript content through our proxy
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const baseUrl = getBaseUrl();
     const transcriptResponse = await fetch(`${baseUrl}/api/proxy/transcript?url=${encodeURIComponent(callRecord.transcript_url)}`);
     if (!transcriptResponse.ok) {
       throw new Error(`Failed to fetch transcript from URL: ${callRecord.transcript_url}`);
