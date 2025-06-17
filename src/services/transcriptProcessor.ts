@@ -113,5 +113,8 @@ ${transcript}`;
     throw new Error('No response from OpenAI');
   }
 
-  return JSON.parse(response) as TranscriptAnalysis;
+  // Remove Markdown code block if present
+  const cleaned = response.trim().replace(/^```json\s*|^```\s*|```$/gim, '').replace(/```$/g, '').trim();
+
+  return JSON.parse(cleaned) as TranscriptAnalysis;
 } 
