@@ -23,7 +23,7 @@ interface TranscriptAnalysis {
 }
 
 function getBaseUrl() {
-  if (process.env.NEXT_PUBLIC_BASE_URL) return process.env.NEXT_PUBLIC_BASE_URL;
+  if (process.env.NEXT_PUBLIC_BASE_URL) return `https://911-call-simulator-poc-git-database-i-9922c2-911-call-simulator.vercel.app`;
   if (process.env.VERCEL_URL) return `https://911-call-simulator-poc-git-database-i-9922c2-911-call-simulator.vercel.app`;
   return 'http://localhost:3000';
 }
