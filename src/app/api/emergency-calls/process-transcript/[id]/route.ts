@@ -3,7 +3,7 @@ import { processCallTranscript } from '@/services/transcriptProcessor';
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params: _ }: { params: { id: string } }
 ) {
   try {
     // Get the call ID from the URL instead of params

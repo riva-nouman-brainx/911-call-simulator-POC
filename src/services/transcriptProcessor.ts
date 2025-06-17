@@ -1,4 +1,3 @@
-import { Pool } from 'pg';
 import OpenAI from 'openai';
 import pool from '../db/config';
 

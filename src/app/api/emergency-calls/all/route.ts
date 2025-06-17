@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { EmergencyCallModel } from "@/models/EmergencyCall";
 
 export async function GET() {
   try {

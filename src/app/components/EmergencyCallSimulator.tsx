@@ -219,6 +219,11 @@ const EmergencyCallSimulator: React.FC = () => {
     }
   };
 
+  const handleError = (error: Error) => {
+    console.error('Error:', error);
+    // Handle error appropriately
+  };
+
   return (
     <div className="flex flex-col h-screen bg-[#1A1A1A] text-[#ededed]">
       {/* Emergency Call Header */}

@@ -8,7 +8,6 @@ import Image from "next/image";
 
 // UI components
 import Transcript from "./components/Transcript";
-import Events from "./components/Events";
 import BottomToolbar from "./components/BottomToolbar";
 
 // Types
@@ -109,15 +108,13 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
     },
   );
 
-  // Initialize the recording hook.
+  // Initialize the recording hook with only used variables
   const { 
     startRecording, 
     stopRecording, 
     downloadRecording, 
     getAudioBlob,
-    isRecording,
-    recordingError,
-    saveRecordingToCache 
+    recordingError
   } = useAudioDownload();
 
   // Add recording status indicator
@@ -881,8 +878,6 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
     sendClientEvent({ type: "input_audio_buffer.commit" });
     sendClientEvent({ type: "response.create" });
   };
-
-  const agentSetKey = searchParams.get("agentConfig") || "default";
 
   const handleCodecChange = (newCodec: string) => {
     const url = new URL(window.location.toString());
