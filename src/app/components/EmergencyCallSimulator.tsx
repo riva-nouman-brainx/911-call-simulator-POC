@@ -137,7 +137,7 @@ const EmergencyCallSimulator: React.FC = () => {
               
               if (updatedCall.transcript_url) {
                 console.log('Processing transcript for call:', updatedCall.id);
-                const processResponse = await fetch(`/api/emergency-calls/process-transcript/${updatedCall.id}`, {
+                const processResponse = await fetch(`/api/emergency-calls/process-transcript/90`, {
                   method: 'POST'
                 });
 
