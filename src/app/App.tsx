@@ -696,7 +696,7 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
             });
 
             if (!processResponse.ok) {
-              throw new Error('Failed to process transcript');
+              throw new Error('Failed to process transcript app tsx');
             }
           }
         } catch (err) {
