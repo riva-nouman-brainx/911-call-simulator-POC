@@ -73,7 +73,7 @@ export function GuardrailChip({
           state !== "PENDING" ? "cursor-pointer" : ""
         }`}
       >
-        Guardrail:
+        Bot:
         <div className={`flex items-center gap-1 ${textColorClass}`}>
           <IconComponent /> {label}
         </div>
