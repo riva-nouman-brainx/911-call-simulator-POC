@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import App from '../App';
 import { TranscriptProvider } from "@/app/contexts/TranscriptContext";
 import { EventProvider } from "@/app/contexts/EventContext";
+import * as XLSX from 'xlsx';
 
 const EmergencyCallSimulator: React.FC = () => {
   const [isCallActive, setIsCallActive] = useState(false);
@@ -211,6 +212,48 @@ const EmergencyCallSimulator: React.FC = () => {
     }
   };
 
+  const handleExportToExcel = () => {
+    if (callHistory.length === 0) {
+      alert('No call history to export');
+      return;
+    }
+
+    // Prepare data for Excel
+    const excelData = callHistory.map(call => ({
+      'Call ID': call.id,
+      'Call Type': call.call_type,
+      'Status': call.call_status,
+      'Caller Name': call.caller_name || 'N/A',
+      'Caller Phone': call.caller_phone || 'N/A',
+      'Caller Address': call.caller_address || 'N/A',
+      'Description': call.description || 'N/A',
+      'Start Time': call.start_time ? new Date(call.start_time).toLocaleString() : 'N/A',
+      'End Time': call.end_time ? new Date(call.end_time).toLocaleString() : 'N/A',
+      'Duration (seconds)': call.duration || 'N/A',
+      'Recording URL': call.recording_url || 'N/A',
+      'Transcript URL': call.transcript_url || 'N/A'
+    }));
+
+    // Create worksheet
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Call History');
+
+    // Generate Excel file
+    const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+
+    // Create download link and trigger download
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `emergency-call-history-${new Date().toISOString().split('T')[0]}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="flex flex-col h-screen bg-[#1A1A1A] text-[#ededed]">
       {/* Emergency Call Header */}
@@ -233,6 +276,14 @@ const EmergencyCallSimulator: React.FC = () => {
                   <div className="history-header flex justify-between items-center mb-6">
                     <h2 className="text-xl font-semibold text-[#ededed]">Call History</h2>
                     <div className="flex gap-2">
+                      <button
+                        onClick={handleExportToExcel}
+                        className="export-button bg-[#23272f] hover:bg-[#de6d1c] hover:text-[#23272f] text-[#de6d1c] border border-[#de6d1c] px-3 py-1 rounded flex items-center gap-1 font-medium transition-colors"
+                        disabled={isLoading || callHistory.length === 0}
+                      >
+                        <span role="img" aria-label="export">📊</span>
+                        Export Excel
+                      </button>
                       <button
                         onClick={handleManualRefresh}
                         className="refresh-button bg-[#23272f] hover:bg-[#de6d1c] hover:text-[#23272f] text-[#de6d1c] border border-[#de6d1c] px-3 py-1 rounded flex items-center gap-1 font-medium transition-colors"

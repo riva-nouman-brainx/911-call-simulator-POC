@@ -4,39 +4,16 @@ import { SessionStatus } from "@/app/types";
 interface BottomToolbarProps {
   sessionStatus: SessionStatus;
   onToggleConnection: () => Promise<void>;
-  isPTTActive: boolean;
-  setIsPTTActive: (val: boolean) => void;
-  isPTTUserSpeaking: boolean;
-  handleTalkButtonDown: () => void;
-  handleTalkButtonUp: () => void;
-  isAudioPlaybackEnabled: boolean;
-  setIsAudioPlaybackEnabled: (val: boolean) => void;
-  codec: string;
-  onCodecChange: (newCodec: string) => void;
   isDisconnecting?: boolean;
 }
 
 function BottomToolbar({
   sessionStatus,
   onToggleConnection,
-  isPTTActive,
-  setIsPTTActive,
-  isPTTUserSpeaking,
-  handleTalkButtonDown,
-  handleTalkButtonUp,
-  isAudioPlaybackEnabled,
-  setIsAudioPlaybackEnabled,
-  codec,
-  onCodecChange,
   isDisconnecting = false,
 }: BottomToolbarProps) {
   const isConnected = sessionStatus === "CONNECTED";
   const isConnecting = sessionStatus === "CONNECTING";
-
-  const handleCodecChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newCodec = e.target.value;
-    onCodecChange(newCodec);
-  };
 
   function getConnectionButtonLabel() {
     if (isDisconnecting) return "Disconnecting...";
@@ -66,7 +43,7 @@ function BottomToolbar({
   };
 
   return (
-    <div className="p-4 flex flex-row items-center justify-center gap-x-8 bg-[#1A1A1A] text-[#E0E0E0] border-t border-[#333333]">
+    <div className="p-4 flex flex-row items-center justify-center bg-[#1A1A1A] text-[#E0E0E0] border-t border-[#333333]">
       <button
         onClick={handleDisconnect}
         className={getConnectionButtonClasses()}
@@ -82,68 +59,6 @@ function BottomToolbar({
         )}
         {getConnectionButtonLabel()}
       </button>
-
-      <div className="flex flex-row items-center gap-2">
-        <input
-          id="push-to-talk"
-          type="checkbox"
-          checked={isPTTActive}
-          onChange={(e) => setIsPTTActive(e.target.checked)}
-          disabled={!isConnected}
-          className="w-4 h-4"
-        />
-        <label
-          htmlFor="push-to-talk"
-          className="flex items-center cursor-pointer"
-        >
-          Push to talk
-        </label>
-        <button
-          onMouseDown={handleTalkButtonDown}
-          onMouseUp={handleTalkButtonUp}
-          onTouchStart={handleTalkButtonDown}
-          onTouchEnd={handleTalkButtonUp}
-          disabled={!isPTTActive}
-          className={
-            (isPTTUserSpeaking ? "bg-[#de6d1c] text-white" : "bg-[#333333] text-[#E0E0E0]") +
-            " py-1 px-4 cursor-pointer rounded-md" +
-            (!isPTTActive ? " bg-[#1A1A1A] text-[#666666]" : "")
-          }
-        >
-          Talk
-        </button>
-      </div>
-
-      <div className="flex flex-row items-center gap-1">
-        <input
-          id="audio-playback"
-          type="checkbox"
-          checked={isAudioPlaybackEnabled}
-          onChange={(e) => setIsAudioPlaybackEnabled(e.target.checked)}
-          disabled={!isConnected}
-          className="w-4 h-4"
-        />
-        <label
-          htmlFor="audio-playback"
-          className="flex items-center cursor-pointer"
-        >
-          Audio playback
-        </label>
-      </div>
-
-      <div className="flex flex-row items-center gap-2">
-        <div>Codec:</div>
-        <select
-          id="codec-select"
-          value={codec}
-          onChange={handleCodecChange}
-          className="border border-[#808080] rounded-md px-2 py-1 focus:outline-none cursor-pointer bg-[#1A1A1A] text-[#E0E0E0]"
-        >
-          <option value="opus">Opus (48 kHz)</option>
-          <option value="pcmu">PCMU (8 kHz)</option>
-          <option value="pcma">PCMA (8 kHz)</option>
-        </select>
-      </div>
     </div>
   );
 }

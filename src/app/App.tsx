@@ -47,9 +47,6 @@ interface AppProps {
 function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
   const searchParams = useSearchParams()!;
 
-  // Use urlCodec directly from URL search params (default: "opus")
-  const urlCodec = searchParams.get("codec") || "opus";
-
   const {
     transcriptItems,
     addTranscriptMessage,
@@ -96,15 +93,6 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
     useState<SessionStatus>("DISCONNECTED");
 
   const [userText, setUserText] = useState<string>("");
-  const [isPTTActive, setIsPTTActive] = useState<boolean>(false);
-  const [isPTTUserSpeaking, setIsPTTUserSpeaking] = useState<boolean>(false);
-  const [isAudioPlaybackEnabled, setIsAudioPlaybackEnabled] = useState<boolean>(
-    () => {
-      if (typeof window === 'undefined') return true;
-      const stored = localStorage.getItem('audioPlaybackEnabled');
-      return stored ? stored === 'true' : true;
-    },
-  );
 
   // Initialize the recording hook.
   const { 
@@ -172,7 +160,7 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
     if (sessionStatus === "CONNECTED") {
       updateSession();
     }
-  }, [isPTTActive]);
+  }, [sessionStatus]);
 
   const fetchEphemeralKey = async (): Promise<string | null> => {
     logClientEvent({ url: "/session" }, "fetch_session_token_request");
@@ -662,7 +650,6 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
         sdkClientRef.current = null;
       }
       setSessionStatus("DISCONNECTED");
-      setIsPTTUserSpeaking(false);
       logClientEvent({}, "disconnected");
       onCallEnd();
 
@@ -794,20 +781,17 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
 
       const client = sdkClientRef.current;
       if (client) {
-        const turnDetection = isPTTActive
-          ? null
-          : {
-              type: 'server_vad',
-              threshold: 0.9,
-              prefix_padding_ms: 300,
-              silence_duration_ms: 500,
-              create_response: true,
-            };
         try {
           client.sendEvent({
             type: 'session.update',
             session: {
-              turn_detection: turnDetection,
+              turn_detection: {
+                type: 'server_vad',
+                threshold: 0.9,
+                prefix_padding_ms: 300,
+                silence_duration_ms: 500,
+                create_response: true,
+              },
             },
           });
         } catch (err) {
@@ -843,31 +827,6 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
     } else {
       connectToRealtime();
     }
-  };
-
-  const handleTalkButtonDown = () => {
-    if (sessionStatus !== 'CONNECTED' || sdkClientRef.current == null) return;
-    if (sdkClientRef.current) {
-      sdkClientRef.current.interrupt();
-    }
-
-    setIsPTTUserSpeaking(true);
-    sendClientEvent({ type: "input_audio_buffer.clear" });
-  };
-
-  const handleTalkButtonUp = () => {
-    if (sessionStatus !== 'CONNECTED' || sdkClientRef.current == null || !isPTTUserSpeaking)
-      return;
-
-    setIsPTTUserSpeaking(false);
-    sendClientEvent({ type: "input_audio_buffer.commit" });
-    sendClientEvent({ type: "response.create" });
-  };
-
-  const handleCodecChange = (newCodec: string) => {
-    const url = new URL(window.location.toString());
-    url.searchParams.set("codec", newCodec);
-    window.location.replace(url.toString());
   };
 
   // Add recording status indicator to the UI
@@ -908,7 +867,7 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
           downloadRecording={downloadRecording}
           canSend={
             sessionStatus === "CONNECTED" &&
-                  sdkClientRef.current != null
+            sdkClientRef.current != null
           }
         />
 
@@ -918,15 +877,6 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
       <BottomToolbar
         sessionStatus={sessionStatus}
         onToggleConnection={onToggleConnection}
-        isPTTActive={isPTTActive}
-        setIsPTTActive={setIsPTTActive}
-        isPTTUserSpeaking={isPTTUserSpeaking}
-        handleTalkButtonDown={handleTalkButtonDown}
-        handleTalkButtonUp={handleTalkButtonUp}
-        isAudioPlaybackEnabled={isAudioPlaybackEnabled}
-        setIsAudioPlaybackEnabled={setIsAudioPlaybackEnabled}
-        codec={urlCodec}
-        onCodecChange={handleCodecChange}
         isDisconnecting={isDisconnecting}
       />
 
