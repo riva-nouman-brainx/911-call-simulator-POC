@@ -107,7 +107,7 @@ function App() {
   const { startRecording, stopRecording, downloadRecording } =
     useAudioDownload();
 
-  const sendClientEvent = (eventObj: any, eventNameSuffix = '') => {
+  const sendClientEvent = (eventObj: any) => {
     if (!sdkClientRef.current) {
       console.error('SDK client not available', eventObj);
       return;
@@ -589,12 +589,10 @@ function App() {
           role: "user",
           content: [{ type: "input_text", text }],
         },
-      },
-      "(simulated user text message)"
+      }
     );
     sendClientEvent(
-      { type: "response.create" },
-      "(trigger response after simulated user text message)"
+      { type: "response.create" }
     );
   };
 
@@ -669,7 +667,7 @@ function App() {
     cancelAssistantSpeech();
 
     setIsPTTUserSpeaking(true);
-    sendClientEvent({ type: "input_audio_buffer.clear" }, "clear PTT buffer");
+    sendClientEvent({ type: "input_audio_buffer.clear" });
 
     // No placeholder; we'll rely on server transcript once ready.
   };
@@ -679,8 +677,8 @@ function App() {
       return;
 
     setIsPTTUserSpeaking(false);
-    sendClientEvent({ type: "input_audio_buffer.commit" }, "commit PTT");
-    sendClientEvent({ type: "response.create" }, "trigger response PTT");
+    sendClientEvent({ type: "input_audio_buffer.commit" });
+    sendClientEvent({ type: "response.create" });
   };
 
   const onToggleConnection = () => {
