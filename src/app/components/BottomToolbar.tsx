@@ -7,7 +7,6 @@ interface BottomToolbarProps {
   isDisconnecting?: boolean;
 }
 
-
 function BottomToolbar({
   sessionStatus,
   onToggleConnection,
