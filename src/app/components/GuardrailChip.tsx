@@ -30,8 +30,8 @@ export function GuardrailChip({
     guardrailResult.status === "IN_PROGRESS"
       ? "PENDING"
       : guardrailResult.category === "NONE"
-      ? "PASS"
-      : "FAIL";
+        ? "PASS"
+        : "FAIL";
 
   // Variables for icon, label, and styling classes based on state
   let IconComponent;
@@ -41,7 +41,7 @@ export function GuardrailChip({
     case "PENDING":
       IconComponent = ClockIcon;
       label = "Pending";
-      textColorClass = "text-[#808080]";
+      textColorClass = "text-reality-gray";
       break;
     case "PASS":
       IconComponent = CheckCircledIcon;
@@ -56,11 +56,11 @@ export function GuardrailChip({
     default:
       IconComponent = ClockIcon;
       label = "Pending";
-      textColorClass = "text-[#808080]";
+      textColorClass = "text-reality-gray";
   }
 
   return (
-    <div className="text-xs text-[#E0E0E0]">
+    <div className="text-xs text-foreground">
       <div
         onClick={() => {
           // Only allow toggling the expanded state for PASS/FAIL cases.
@@ -69,9 +69,8 @@ export function GuardrailChip({
           }
         }}
         // Only add pointer cursor if clickable (PASS or FAIL state)
-        className={`inline-flex items-center gap-1 rounded ${
-          state !== "PENDING" ? "cursor-pointer" : ""
-        }`}
+        className={`inline-flex items-center gap-1 rounded ${state !== "PENDING" ? "cursor-pointer" : ""
+          }`}
       >
         Bot:
         <div className={`flex items-center gap-1 ${textColorClass}`}>
@@ -81,9 +80,8 @@ export function GuardrailChip({
       {/* Container for expandable content */}
       {state !== "PENDING" && guardrailResult.category && guardrailResult.rationale && (
         <div
-          className={`overflow-hidden transition-all duration-300 ${
-            expanded ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"
-          }`}
+          className={`overflow-hidden transition-all duration-300 ${expanded ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"
+            }`}
         >
           <div className="pt-2 text-xs">
             <strong>
@@ -91,7 +89,7 @@ export function GuardrailChip({
             </strong>
             <div>{guardrailResult.rationale}</div>
             {guardrailResult.testText && (
-              <blockquote className="mt-1 border-l-2 border-[#808080] pl-2 text-[#808080]">
+              <blockquote className="mt-1 border-l-2 border-reality-gray pl-2 text-reality-gray">
                 {guardrailResult.testText}
               </blockquote>
             )}

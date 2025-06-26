@@ -95,10 +95,10 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
   const [userText, setUserText] = useState<string>("");
 
   // Initialize the recording hook.
-  const { 
-    startRecording, 
-    stopRecording, 
-    downloadRecording, 
+  const {
+    startRecording,
+    stopRecording,
+    downloadRecording,
     getAudioBlob,
     recordingError,
   } = useAudioDownload();
@@ -536,15 +536,15 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
             const exists = transcriptItemsRef.current.some(
               (t) => t.itemId === item.itemId,
             );
-              if (!exists) {
-                addTranscriptMessage(item.itemId, role, textContent, false);
-                if (role === 'assistant') {
-                  updateTranscriptItem(item.itemId, {
-                    guardrailResult: {
-                      status: 'IN_PROGRESS',
-                    },
-                  } as any);
-                }
+            if (!exists) {
+              addTranscriptMessage(item.itemId, role, textContent, false);
+              if (role === 'assistant') {
+                updateTranscriptItem(item.itemId, {
+                  guardrailResult: {
+                    status: 'IN_PROGRESS',
+                  },
+                } as any);
+              }
             } else {
               updateTranscriptMessage(item.itemId, textContent, false);
             }
@@ -629,7 +629,7 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
       // Get audio blob and transcript
       const audioBlob = getAudioBlob();
       const transcriptText = transcriptItemsRef.current.map(item => item.title).join('\n');
-      
+
       const now = new Date();
       const callData = {
         start_time: callStartTime?.toISOString() || now.toISOString(),
@@ -665,7 +665,7 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
             method: 'POST',
             body: formData,
           });
-          
+
           if (!response.ok) {
             const errorData = await response.json();
             throw new Error(`Failed to save call data: ${errorData.message || response.statusText}`);
@@ -699,15 +699,15 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
                 formData.append('audio', cachedBlob, 'call.webm');
                 formData.append('transcript', transcriptText);
                 formData.append('callData', JSON.stringify(callData));
-                
+
                 const retryResponse = await fetch('/api/emergency-calls/save', {
                   method: 'POST',
                   body: formData,
                 });
-                
+
                 if (retryResponse.ok) {
                   const retryResult = await retryResponse.json();
-                  
+
                   // Process transcript after successful save
                   if (retryResult.id) {
                     await fetch(`/api/emergency-calls/process-transcript/${retryResult.id}`, {
@@ -735,7 +735,7 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
               'Content-Type': 'application/json'
             }
           });
-          
+
           if (!response.ok) {
             throw new Error('Failed to save minimal call record');
           }
@@ -831,18 +831,18 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
 
   // Add recording status indicator to the UI
   return (
-    <div className="text-base flex flex-col h-screen bg-[#1A1A1A] text-white relative">
-      <div className="p-5 text-lg font-semibold flex justify-between items-center bg-[#1A1A1A] border-b border-[#333333]">
+    <div className="text-base flex flex-col h-screen bg-background text-foreground relative">
+      <div className="p-5 text-lg font-semibold flex justify-between items-center bg-background border-b border-border">
         <div
           className="flex items-center cursor-pointer"
           onClick={() => window.location.reload()}
         >
           <div style={{
-            background: 'white',
+            background: 'rgba(255, 255, 255, 0.1)',
             borderRadius: '8px',
             padding: '8px 16px',
             display: 'inline-block',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.10)'
+            boxShadow: '0 2px 8px rgba(255, 107, 53, 0.20)'
           }}>
             <Image
               src="/911reality-logo.png"
@@ -853,8 +853,8 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
               style={{ display: 'block' }}
             />
           </div>
-          <div className="ml-6">
-            Realtime API <span className="text-[#de6d1c]">Agents</span>
+          <div className="ml-6 text-reality-gray">
+            911 Reality <span className="text-reality-orange font-bold">Call Simulator</span>
           </div>
         </div>
       </div>
@@ -881,9 +881,9 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
       />
 
       {showRecordingStatus && (
-        <div className="fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-full flex items-center gap-2 z-50">
+        <div className="fixed top-4 right-4 bg-reality-orange text-white px-4 py-2 rounded-full flex items-center gap-2 z-50 font-semibold">
           <div className="w-3 h-3 bg-white rounded-full animate-pulse"></div>
-          Recording
+          RECORDING
         </div>
       )}
     </div>

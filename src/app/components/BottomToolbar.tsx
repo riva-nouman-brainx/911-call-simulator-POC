@@ -23,15 +23,15 @@ function BottomToolbar({
   }
 
   function getConnectionButtonClasses() {
-    const baseClasses = "text-white text-base p-2 w-36 rounded-md h-full";
+    const baseClasses = "text-white text-base p-2 w-36 rounded-md h-full font-semibold";
     const cursorClass = (isConnecting || isDisconnecting) ? "cursor-not-allowed" : "cursor-pointer";
 
     if (isConnected && !isDisconnecting) {
       // Connected -> label "Disconnect" -> orange
-      return `bg-[#de6d1c] hover:bg-[#c55c15] ${cursorClass} ${baseClasses}`;
+      return `bg-reality-orange hover:bg-reality-amber ${cursorClass} ${baseClasses}`;
     }
     // Disconnected, connecting, or disconnecting -> dark gray
-    return `bg-[#333333] hover:bg-[#404040] ${cursorClass} ${baseClasses}`;
+    return `bg-reality-gray hover:bg-secondary text-white ${cursorClass} ${baseClasses}`;
   }
 
   const handleDisconnect = async () => {
@@ -43,7 +43,7 @@ function BottomToolbar({
   };
 
   return (
-    <div className="p-4 flex flex-row items-center justify-center bg-[#1A1A1A] text-[#E0E0E0] border-t border-[#333333]">
+    <div className="p-4 flex flex-row items-center justify-center bg-background text-foreground border-t border-border">
       <button
         onClick={handleDisconnect}
         className={getConnectionButtonClasses()}

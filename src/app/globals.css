@@ -3,14 +3,37 @@
 @tailwind utilities;
 
 :root {
-  --background: #fafafa;
-  --foreground: #171717;
+  /* 911 Reality Color Scheme */
+  --background: #f8f9fa;
+  /* Light grey background */
+  /* White background */
+  --foreground: #ffffff;
+  /* White text */
+  --primary: #de6d1c;
+  /* Orange rgb(222 109 28) for primary elements */
+  --secondary: #777c82;
+  /* Gray rgb(119 124 130) for secondary elements */
+  --accent: #de6d1c;
+  /* Same orange for accents */
+  --card-bg: #777c82;
+  /* Gray rgb(119 124 130) for card backgrounds */
+  --border: #333333;
+  /* Border color */
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #f8f9fa;
+    /* Light grey background */
+    /* White background */
+    --foreground: #ffffff;
+    /* White text */
+    --primary: #de6d1c;
+    --secondary: #777c82;
+    --accent: #de6d1c;
+    --card-bg: #777c82;
+    /* Gray rgb(119 124 130) for card backgrounds */
+    --border: #333333;
   }
 }
 

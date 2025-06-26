@@ -17,7 +17,7 @@ function Events({ isExpanded }: EventsProps) {
   const getDirectionArrow = (direction: string) => {
     if (direction === "client") return { symbol: "▲", color: "#de6d1c" };
     if (direction === "server") return { symbol: "▼", color: "#2cb67d" };
-    return { symbol: "•", color: "#666666" };
+    return { symbol: "•", color: "#777c82" };
   };
 
   useEffect(() => {
@@ -35,13 +35,13 @@ function Events({ isExpanded }: EventsProps) {
     <div
       className={
         (isExpanded ? "w-1/2 overflow-auto" : "w-0 overflow-hidden opacity-0") +
-        " transition-all rounded-xl duration-200 ease-in-out flex-col bg-[#1A1A1A]"
+        " transition-all rounded-xl duration-200 ease-in-out flex-col bg-card border border-border"
       }
       ref={eventLogsContainerRef}
     >
       {isExpanded && (
         <div>
-          <div className="flex items-center justify-between px-6 py-3.5 sticky top-0 z-10 text-[#E0E0E0] border-b border-[#333333] bg-[#1A1A1A] rounded-t-xl">
+          <div className="flex items-center justify-between px-6 py-3.5 sticky top-0 z-10 text-foreground border-b border-border bg-card rounded-t-xl">
             <span className="font-semibold">Logs</span>
           </div>
           <div>
@@ -54,7 +54,7 @@ function Events({ isExpanded }: EventsProps) {
               return (
                 <div
                   key={log.id}
-                  className="border-t border-[#333333] py-2 px-6 font-mono"
+                  className="border-t border-border py-2 px-6 font-mono"
                 >
                   <div
                     onClick={() => toggleExpand(log.id)}
@@ -65,25 +65,25 @@ function Events({ isExpanded }: EventsProps) {
                         style={{ color: arrowInfo.color }}
                         className="ml-1 mr-2"
                       >
-                      {arrowInfo.symbol}
+                        {arrowInfo.symbol}
                       </span>
                       <span
                         className={
                           "flex-1 text-sm " +
-                          (isError ? "text-red-500" : "text-[#E0E0E0]")
+                          (isError ? "text-red-500" : "text-foreground")
                         }
                       >
                         {log.eventName}
                       </span>
                     </div>
-                    <div className="text-[#666666] ml-1 text-xs whitespace-nowrap">
+                    <div className="text-reality-gray ml-1 text-xs whitespace-nowrap">
                       {log.timestamp}
                     </div>
                   </div>
 
                   {log.expanded && log.eventData && (
-                    <div className="text-[#E0E0E0] text-left">
-                      <pre className="border-l-2 ml-1 border-[#333333] whitespace-pre-wrap break-words font-mono text-xs mb-2 mt-2 pl-2">
+                    <div className="text-foreground text-left">
+                      <pre className="border-l-2 ml-1 border-border whitespace-pre-wrap break-words font-mono text-xs mb-2 mt-2 pl-2">
                         {JSON.stringify(log.eventData, null, 2)}
                       </pre>
                     </div>

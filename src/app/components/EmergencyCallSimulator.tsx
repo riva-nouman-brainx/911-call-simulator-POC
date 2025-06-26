@@ -263,9 +263,8 @@ const EmergencyCallSimulator: React.FC = () => {
     // Create download link and trigger download
     const a = document.createElement('a');
     a.href = url;
-    a.download = `emergency-call-history-${
-      new Date().toISOString().split('T')[0]
-    }.xlsx`;
+    a.download = `emergency-call-history-${new Date().toISOString().split('T')[0]
+      }.xlsx`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -273,15 +272,15 @@ const EmergencyCallSimulator: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-[#1A1A1A] text-[#ededed]">
+    <div className="flex flex-col h-screen bg-background text-foreground">
       {/* Emergency Call Header */}
-      <div className="bg-[#de6d1c] p-4 text-center">
-        <h1 className="text-2xl font-bold text-[#23272f]">
-          911 Dispatcher Training Simulator
+      <div className="bg-reality-orange p-4 text-center">
+        <h1 className="text-2xl font-bold text-white">
+          911 Reality Training Simulator
         </h1>
         {isCallActive && (
           <div className="mt-2">
-            <span className="text-[#23272f] font-semibold">
+            <span className="text-white font-semibold">
               Call Duration: {callDuration}
             </span>
           </div>
@@ -294,15 +293,15 @@ const EmergencyCallSimulator: React.FC = () => {
           <div className="h-full flex flex-col">
             <div className="flex-1 p-6 overflow-hidden">
               <div className="max-w-4xl mx-auto h-full flex flex-col">
-                <div className="history-container bg-[#23272f] rounded-lg p-6 flex flex-col h-full">
+                <div className="history-container bg-card rounded-lg p-6 flex flex-col h-full">
                   <div className="history-header flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-semibold text-[#ededed]">
+                    <h2 className="text-xl font-semibold text-foreground">
                       Call History
                     </h2>
                     <div className="flex gap-2">
                       <button
                         onClick={handleExportToExcel}
-                        className="export-button bg-[#23272f] hover:bg-[#de6d1c] hover:text-[#23272f] text-[#de6d1c] border border-[#de6d1c] px-3 py-1 rounded flex items-center gap-1 font-medium transition-colors"
+                        className="export-button bg-reality-gray hover:bg-reality-orange hover:text-white text-white border border-black px-3 py-1 rounded flex items-center gap-1 font-medium transition-colors"
                         disabled={isLoading || callHistory.length === 0}
                       >
                         <span role="img" aria-label="export">
@@ -312,11 +311,11 @@ const EmergencyCallSimulator: React.FC = () => {
                       </button>
                       <button
                         onClick={handleManualRefresh}
-                        className="refresh-button bg-[#23272f] hover:bg-[#de6d1c] hover:text-[#23272f] text-[#de6d1c] border border-[#de6d1c] px-3 py-1 rounded flex items-center gap-1 font-medium transition-colors"
+                        className="refresh-button bg-reality-gray hover:bg-reality-orange hover:text-white text-white border border-black px-3 py-1 rounded flex items-center gap-1 font-medium transition-colors"
                         disabled={isLoading}
                       >
                         {isLoading ? (
-                          <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-[#de6d1c]"></div>
+                          <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-black"></div>
                         ) : (
                           <span role="img" aria-label="refresh">
                             🔄
@@ -328,7 +327,7 @@ const EmergencyCallSimulator: React.FC = () => {
                   </div>
                   {isLoading ? (
                     <div className="flex justify-center items-center py-12">
-                      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#de6d1c]"></div>
+                      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black"></div>
                     </div>
                   ) : retryCount > 0 ? (
                     <div className="text-center py-12">
@@ -340,18 +339,17 @@ const EmergencyCallSimulator: React.FC = () => {
                           setRetryCount(0);
                           setShouldRefreshHistory(true);
                         }}
-                        className="bg-[#de6d1c] text-[#23272f] px-4 py-2 rounded hover:bg-[#c55c15] transition-colors"
+                        className="bg-reality-orange text-white px-4 py-2 rounded hover:bg-reality-amber transition-colors font-semibold"
                       >
                         Try Again
                       </button>
                     </div>
                   ) : (
                     <div
-                      className={`history-list space-y-4 ${
-                        callHistory.length > 3
-                          ? 'overflow-y-auto max-h-[calc(100vh-300px)]'
-                          : ''
-                      } pr-2`}
+                      className={`history-list space-y-4 ${callHistory.length > 3
+                        ? 'overflow-y-auto max-h-[calc(100vh-300px)]'
+                        : ''
+                        } pr-2`}
                     >
                       {callHistory.length === 0 ? (
                         <div className="text-center py-12 text-gray-400">
@@ -361,15 +359,15 @@ const EmergencyCallSimulator: React.FC = () => {
                         callHistory.map((call) => (
                           <div
                             key={call.id}
-                            className="history-item bg-[#171a20] p-4 rounded-lg"
+                            className="history-item bg-reality-gray p-4 rounded-lg border border-border"
                           >
-                            <p className="font-medium mb-2 text-[#ededed]">
+                            <p className="font-medium mb-2 text-white">
                               Call #{call.id} -{' '}
-                              {call.description || 'Abandoned Vehicle Report'}
+                              {call.description || 'Emergency Call'}
                             </p>
                             <div className="call-actions flex gap-2">
                               <button
-                                className="audio-button bg-[#23272f] hover:bg-[#de6d1c] hover:text-[#23272f] text-[#de6d1c] border border-[#de6d1c] px-3 py-1 rounded flex items-center gap-1 font-medium transition-colors"
+                                className="audio-button bg-reality-gray hover:bg-reality-orange hover:text-white text-white border border-black px-3 py-1 rounded flex items-center gap-1 font-medium transition-colors"
                                 onClick={() =>
                                   openAudioModal(call.recording_url)
                                 }
@@ -380,7 +378,7 @@ const EmergencyCallSimulator: React.FC = () => {
                                 Audio
                               </button>
                               <button
-                                className="transcription-button bg-[#23272f] hover:bg-[#de6d1c] hover:text-[#23272f] text-[#de6d1c] border border-[#de6d1c] px-3 py-1 rounded flex items-center gap-1 font-medium transition-colors"
+                                className="transcription-button bg-reality-gray hover:bg-reality-orange hover:text-white text-white border border-black px-3 py-1 rounded flex items-center gap-1 font-medium transition-colors"
                                 onClick={() =>
                                   openTranscriptionModal(call.transcript_url)
                                 }
@@ -399,16 +397,16 @@ const EmergencyCallSimulator: React.FC = () => {
                 </div>
               </div>
             </div>
-            <div className="p-6 bg-[#1A1A1A] border-t border-[#333333]">
+            <div className="p-6 bg-background border-t border-border">
               <div className="max-w-4xl mx-auto">
                 <button
-                  className="start-button bg-[#de6d1c] hover:bg-[#c55c15] text-[#23272f] px-6 py-3 rounded-full text-lg font-bold w-full disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="start-button bg-reality-orange hover:bg-reality-amber text-white px-6 py-3 rounded-full text-lg font-bold w-full disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg"
                   onClick={handleStartCall}
                   disabled={micPermission === 'denied' || isStartingCall}
                 >
                   {isStartingCall ? (
                     <div className="flex items-center justify-center gap-2">
-                      <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-[#23272f]"></div>
+                      <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-reality-black"></div>
                       <span>Starting Call...</span>
                     </div>
                   ) : micPermission === 'denied' ? (
@@ -437,15 +435,15 @@ const EmergencyCallSimulator: React.FC = () => {
 
       {/* Audio Modal */}
       {showAudioModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-[#23272f] rounded-lg p-6 max-w-lg w-full">
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+          <div className="bg-card rounded-lg p-6 max-w-lg w-full border border-border">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-semibold text-[#ededed]">
+              <h3 className="text-xl font-semibold text-foreground">
                 Call Audio
               </h3>
               <button
                 onClick={() => setShowAudioModal(false)}
-                className="text-[#de6d1c] hover:text-[#c55c15] text-2xl font-bold"
+                className="text-reality-orange hover:text-reality-amber text-2xl font-bold"
               >
                 ✕
               </button>
@@ -457,20 +455,20 @@ const EmergencyCallSimulator: React.FC = () => {
 
       {/* Transcript Modal */}
       {showTranscriptionModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-[#23272f] rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+          <div className="bg-card rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto border border-border">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-semibold text-[#ededed]">
+              <h3 className="text-xl font-semibold text-foreground">
                 Call Transcription
               </h3>
               <button
                 onClick={() => setShowTranscriptionModal(false)}
-                className="text-[#de6d1c] hover:text-[#c55c15] text-2xl font-bold"
+                className="text-reality-orange hover:text-reality-amber text-2xl font-bold"
               >
                 ✕
               </button>
             </div>
-            <div className="whitespace-pre-wrap text-[#ededed]">
+            <div className="whitespace-pre-wrap text-foreground">
               {transcriptText}
             </div>
           </div>
