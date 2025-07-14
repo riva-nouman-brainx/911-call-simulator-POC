@@ -48,6 +48,9 @@ interface AppProps {
 function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
   const searchParams = useSearchParams()!;
 
+  // Store all assistant TTS audio blobs for concatenation
+  const assistantAudioBlobs = useRef<{ itemId: string, blob: Blob }[]>([]);
+
   const {
     transcriptItems,
     addTranscriptMessage,
@@ -535,8 +538,10 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
                   }
                   console.log("About to call fetchElevenLabsTTS", textContent, voiceId);
                   const audioBlob = await fetchElevenLabsTTS(textContent, voiceId);
+                  // Store the blob for later concatenation
+                  assistantAudioBlobs.current.push({ itemId: item.itemId, blob: audioBlob });
+                  // Play the audio as before
                   const audioUrl = URL.createObjectURL(audioBlob);
-                  console.log("Setting ElevenLabs audio src:", audioUrl);
                   const audio = new Audio(audioUrl);
                   audio.play().then(() => {
                     console.log("ElevenLabs audio is playing");
@@ -740,10 +745,22 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
       logClientEvent({}, "disconnected");
       onCallEnd();
 
-      // Then try to save the call data
-      if (audioBlob && audioBlob.size > 0) {
+      // Concatenate all assistant audio blobs into a single file
+      async function concatenateAudioBlobs(blobs: Blob[]): Promise<Blob> {
+        // Simple concatenation for same format blobs (e.g., mp3 or wav)
+        return new Blob(blobs, { type: blobs[0]?.type || 'audio/mpeg' });
+      }
+
+      const allAssistantBlobs = assistantAudioBlobs.current.map((obj: { itemId: string, blob: Blob }) => obj.blob);
+      let finalAudioBlob: Blob | null = null;
+      if (allAssistantBlobs.length > 0) {
+        finalAudioBlob = await concatenateAudioBlobs(allAssistantBlobs);
+      }
+
+      // Save audio and transcript to backend
+      if (finalAudioBlob && finalAudioBlob.size > 0) {
         const formData = new FormData();
-        formData.append('audio', audioBlob, 'call.webm');
+        formData.append('audio', finalAudioBlob, 'call.mp3');
         formData.append('transcript', transcriptText);
         formData.append('callData', JSON.stringify(callData));
 
@@ -812,28 +829,17 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
       } else {
         // Create a minimal call record without audio
         try {
-          const response = await fetch('/api/emergency-calls/save', {
+          await fetch('/api/emergency-calls/save', {
             method: 'POST',
             body: JSON.stringify({
               ...callData,
-              description: 'Call disconnected without recording'
+              description: 'Call disconnected without recording',
+              transcript: transcriptText
             }),
             headers: {
               'Content-Type': 'application/json'
             }
           });
-
-          if (!response.ok) {
-            throw new Error('Failed to save minimal call record');
-          }
-
-          const result = await response.json();
-          // Process transcript for minimal call record
-          if (result.id) {
-            await fetch(`/api/emergency-calls/process-transcript/${result.id}`, {
-              method: 'POST'
-            });
-          }
         } catch (err) {
           console.error('Failed to save minimal call record:', err);
         }
