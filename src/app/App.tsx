@@ -37,6 +37,7 @@ const sdkScenarioMap: Record<string, RealtimeAgent[]> = {
 };
 
 import useAudioDownload from "./hooks/useAudioDownload";
+import { fetchElevenLabsTTS } from "@/app/lib/elevenLabsTTS";
 
 interface AppProps {
   isCallActive: boolean;
@@ -200,10 +201,11 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
         const client = new RealtimeClient({
           getEphemeralKey: async () => EPHEMERAL_KEY,
           initialAgents: reorderedAgents,
-          audioElement: sdkAudioElement,
+          // audioElement: sdkAudioElement, // Removed to disable SDK audio playback
           extraContext: {
             addTranscriptBreadcrumb,
           },
+          enableTextToSpeech: false, // Disable SDK's default voice output
         } as any);
 
         sdkClientRef.current = client;
@@ -225,6 +227,17 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
 
         client.on("message", (ev) => {
           logServerEvent(ev);
+
+          // Log the full event object for debugging
+          console.log("[Realtime API] Full assistant response:", ev);
+
+          // If the event contains text, log just the text
+          if (ev && (ev.type === 'response.text.delta' || ev.type === 'response.audio_transcript.delta')) {
+            const delta = (ev as any).delta ?? (ev as any).text;
+            if (delta) {
+              console.log("[Realtime API] Assistant text delta:", delta);
+            }
+          }
 
           // --- Realtime streaming handling ---------------------------------
           // The Realtime transport emits granular *delta* events while the
@@ -383,8 +396,11 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
           }
         });
 
-        client.on('history_added', (item) => {
+        client.on('history_added', async (item) => {
           logHistoryItem(item);
+
+          // Debug: log every item
+          console.log("[TTS DEBUG] history_added item:", item);
 
           // Update the transcript view
           if (item.type === 'message') {
@@ -402,6 +418,10 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
             if (!textContent) return;
 
             const role = item.role as 'user' | 'assistant';
+            const status = (item as any).status;
+
+            // Debug: log role and status
+            console.log("[TTS DEBUG] Assistant message status:", status, "itemId:", item.itemId);
 
             // No PTT placeholder logic needed
 
@@ -422,35 +442,34 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
               updateTranscriptMessage(item.itemId, textContent, false);
             }
 
-            // After assistant message completes, add default guardrail PASS if none present.
-            if (
-              role === 'assistant' &&
-              (item as any).status === 'completed'
-            ) {
-              const current = transcriptItemsRef.current.find(
-                (t) => t.itemId === item.itemId,
-              );
-              const existing = (current as any)?.guardrailResult;
-              if (existing && existing.status !== 'IN_PROGRESS') {
-                // already final (e.g., FAIL) – leave as is.
-              } else {
-                updateTranscriptItem(item.itemId, {
-                  guardrailResult: {
-                    status: 'DONE',
-                    category: 'NONE',
-                    rationale: '',
-                  },
-                } as any);
+            if (role === 'assistant') {
+              if (status === 'in_progress' && !ttsPlayedFor.current.has(item.itemId)) {
+                console.log("[TTS DEBUG] Triggering TTS for item:", item.itemId);
+                // --- ElevenLabs TTS Integration ---
+                let voiceId = undefined; // Default: use elderly female
+                try {
+                  // Mute SDK audio so only ElevenLabs is heard
+                  if (audioElementRef.current) {
+                    audioElementRef.current.muted = true;
+                  }
+                  // Debug log to confirm TTS call
+                  console.log("About to call fetchElevenLabsTTS", textContent, voiceId);
+                  const audioBlob = await fetchElevenLabsTTS(textContent, voiceId);
+                  if (audioElementRef.current) {
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    // audioElementRef.current.src = audioUrl;
+                    // audioElementRef.current.play();
+                    audioElementRef.current.onended = () => {
+                      URL.revokeObjectURL(audioUrl);
+                      // Optionally unmute after playback if you want SDK audio for other things
+                      audioElementRef.current && (audioElementRef.current.muted = false);
+                    };
+                  }
+                } catch (err) {
+                  console.error('Failed to synthesize or play ElevenLabs audio:', err);
+                }
+                ttsPlayedFor.current.add(item.itemId);
               }
-            }
-
-            if ('status' in item) {
-              updateTranscriptItem(item.itemId, {
-                status:
-                  (item as any).status === 'completed'
-                    ? 'DONE'
-                    : 'IN_PROGRESS',
-              });
             }
           }
 
@@ -488,8 +507,52 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
 
         // Handle continuous updates for existing items so streaming assistant
         // speech shows up while in_progress.
-        client.on('history_updated', (history) => {
-          history.forEach((item: any) => {
+        client.on('history_updated', async (history) => {
+          history.forEach(async (item: any) => {
+            console.log("[TTS DEBUG] history_updated item:", item);
+            if (item.role === 'assistant') {
+              console.log("[TTS DEBUG] Assistant message status:", item.status, "itemId:", item.itemId);
+              // Trigger TTS on first in_progress for each assistant message
+              if (item.status === 'in_progress' && !ttsPlayedFor.current.has(item.itemId)) {
+                console.log("[TTS DEBUG] Triggering TTS for item:", item.itemId);
+                // --- ElevenLabs TTS Integration ---
+                let voiceId = undefined; // Default: use elderly female
+                try {
+                  // Get the text content for TTS
+                  const textContent = (item.content || [])
+                    .map((c: any) => {
+                      if (c.type === 'text') return c.text;
+                      if (c.type === 'input_text') return c.text;
+                      if (c.type === 'input_audio') return c.transcript ?? '';
+                      if (c.type === 'audio') return c.transcript ?? '';
+                      return '';
+                    })
+                    .join(' ')
+                    .trim();
+                  if (!textContent) {
+                    console.warn("Skipping TTS: empty text content for item", item);
+                    return;
+                  }
+                  console.log("About to call fetchElevenLabsTTS", textContent, voiceId);
+                  const audioBlob = await fetchElevenLabsTTS(textContent, voiceId);
+                  const audioUrl = URL.createObjectURL(audioBlob);
+                  console.log("Setting ElevenLabs audio src:", audioUrl);
+                  const audio = new Audio(audioUrl);
+                  audio.play().then(() => {
+                    console.log("ElevenLabs audio is playing");
+                  }).catch(e => {
+                    console.error("Failed to play ElevenLabs audio", e);
+                  });
+                  audio.onended = () => {
+                    URL.revokeObjectURL(audioUrl);
+                  };
+                } catch (err) {
+                  console.error('Failed to synthesize or play ElevenLabs audio:', err);
+                }
+                ttsPlayedFor.current.add(item.itemId);
+              }
+            }
+
             if (item.type === 'function_call') {
               // Update breadcrumb data (e.g., add output) once we have more info.
 
@@ -561,6 +624,22 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
         });
 
         await client.connect();
+
+        // After connecting, tell the API to only stream text (no built-in TTS audio)
+        client.sendEvent({
+          type: "session.update",
+          session: {
+            modalities: ["text"], // Only request text output, no TTS audio stream
+            // ...other session options if needed
+          }
+        });
+        // Mute all SDK audio output (assistant voice only)
+        if (audioElementRef.current) {
+          audioElementRef.current.muted = true;
+        }
+        // Remove or comment out any code that globally stops or mutes all MediaStreams or AudioContexts
+        // (Do NOT stop tracks or close AudioContexts globally, as this can break mic input)
+        // --- Removed global MediaStream/AudioContext muting logic to avoid breaking user input ---
       } catch (err) {
         console.error("Error connecting via SDK:", err);
         setSessionStatus("DISCONNECTED");
@@ -628,7 +707,15 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
 
       // Get audio blob and transcript
       const audioBlob = getAudioBlob();
-      const transcriptText = transcriptItemsRef.current.map(item => item.title).join('\n');
+      function stripHtml(html: string) {
+        const div = document.createElement('div');
+        div.innerHTML = html;
+        return div.textContent || div.innerText || '';
+      }
+      const transcriptText = transcriptItemsRef.current
+        .filter(item => item.type === "MESSAGE" && item.title)
+        .map(item => stripHtml(item.title ?? ""))
+        .join('\n');
 
       const now = new Date();
       const callData = {
@@ -830,6 +917,27 @@ function App({ isCallActive, onCallEnd, callStartTime }: AppProps) {
   };
 
   // Add recording status indicator to the UI
+  const ttsPlayedFor = useRef(new Set());
+  // Add a manual test button for TTS API
+  const testTTS = () => {
+    fetch('/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: 'Hello, this is a test.', voiceId: 'y1adqrqs4jNaANXsIZnD' })
+    })
+      .then(r => {
+        if (!r.ok) throw new Error('TTS API error: ' + r.status);
+        return r.blob();
+      })
+      .then(b => {
+        const url = URL.createObjectURL(b);
+        const a = new Audio(url);
+        a.play();
+      })
+      .catch(e => {
+        alert('TTS test failed: ' + e.message);
+      });
+  };
   return (
     <div className="text-base flex flex-col h-screen bg-background text-foreground relative">
       <div className="p-5 text-lg font-semibold flex justify-between items-center bg-background border-b border-border">

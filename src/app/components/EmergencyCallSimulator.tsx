@@ -78,9 +78,10 @@ const EmergencyCallSimulator: React.FC = () => {
 
     try {
       setIsStartingCall(true);
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      setMicPermission('granted');
-      setMicStream(stream);
+      // Remove manual microphone access. Let the SDK handle mic access.
+      // const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // setMicPermission('granted');
+      // setMicStream(stream);
       const url = new URL(window.location.toString());
       url.searchParams.set('agentConfig', 'emergencyCall');
       window.history.pushState({}, '', url.toString());
