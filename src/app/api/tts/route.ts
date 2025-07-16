@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     }
 
     const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
-    const DEFAULT_VOICE_ID = "NHVXSL0y0YfmNcWiMbBM";
+    const DEFAULT_VOICE_ID = "EXAVITQu4vr4xnSDxMaL";
     const usedVoiceId = voiceId || DEFAULT_VOICE_ID;
 
     if (!ELEVENLABS_API_KEY) {

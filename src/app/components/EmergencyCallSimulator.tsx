@@ -25,6 +25,7 @@ const EmergencyCallSimulator: React.FC = () => {
   const [retryCount, setRetryCount] = useState(0);
   const MAX_RETRIES = 3;
   const RETRY_DELAY = 1000; // 1 second
+  const [selectedTab, setSelectedTab] = useState<'history' | 'scenarios'>('history');
 
   const fetchCallHistory = async (retryAttempt = 0) => {
     try {
@@ -295,104 +296,138 @@ const EmergencyCallSimulator: React.FC = () => {
             <div className="flex-1 p-6 overflow-hidden">
               <div className="max-w-4xl mx-auto h-full flex flex-col">
                 <div className="history-container bg-card rounded-lg p-6 flex flex-col h-full">
-                  <div className="history-header flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-semibold text-foreground">
-                      Call History
-                    </h2>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={handleExportToExcel}
-                        className="export-button bg-reality-gray hover:bg-reality-orange hover:text-white text-white border border-black px-3 py-1 rounded flex items-center gap-1 font-medium transition-colors"
-                        disabled={isLoading || callHistory.length === 0}
-                      >
-                        <span role="img" aria-label="export">
-                          📊
-                        </span>
-                        Export Excel
-                      </button>
-                      <button
-                        onClick={handleManualRefresh}
-                        className="refresh-button bg-reality-gray hover:bg-reality-orange hover:text-white text-white border border-black px-3 py-1 rounded flex items-center gap-1 font-medium transition-colors"
-                        disabled={isLoading}
-                      >
-                        {isLoading ? (
-                          <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-black"></div>
-                        ) : (
-                          <span role="img" aria-label="refresh">
-                            🔄
-                          </span>
-                        )}
-                        Refresh
-                      </button>
-                    </div>
-                  </div>
-                  {isLoading ? (
-                    <div className="flex justify-center items-center py-12">
-                      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black"></div>
-                    </div>
-                  ) : retryCount > 0 ? (
-                    <div className="text-center py-12">
-                      <p className="text-red-500 mb-4">
-                        Failed to load call history after {retryCount} attempts
-                      </p>
-                      <button
-                        onClick={() => {
-                          setRetryCount(0);
-                          setShouldRefreshHistory(true);
-                        }}
-                        className="bg-reality-orange text-white px-4 py-2 rounded hover:bg-reality-amber transition-colors font-semibold"
-                      >
-                        Try Again
-                      </button>
-                    </div>
-                  ) : (
-                    <div
-                      className={`history-list space-y-4 ${callHistory.length > 3
-                        ? 'overflow-y-auto max-h-[calc(100vh-300px)]'
-                        : ''
-                        } pr-2`}
+                  {/* Tabs */}
+                  <div className="flex mb-6 border-b border-border">
+                    <button
+                      className={`px-4 py-2 font-semibold focus:outline-none transition-colors border-b-2 ${selectedTab === 'history' ? 'border-reality-orange text-reality-orange' : 'border-transparent text-foreground hover:text-reality-orange'}`}
+                      onClick={() => setSelectedTab('history')}
                     >
-                      {callHistory.length === 0 ? (
-                        <div className="text-center py-12 text-gray-400">
-                          No call history available
+                      History
+                    </button>
+                    <button
+                      className={`ml-4 px-4 py-2 font-semibold focus:outline-none transition-colors border-b-2 ${selectedTab === 'scenarios' ? 'border-reality-orange text-reality-orange' : 'border-transparent text-foreground hover:text-reality-orange'}`}
+                      onClick={() => setSelectedTab('scenarios')}
+                    >
+                      Scenarios
+                    </button>
+                  </div>
+                  {/* Tab Content */}
+                  {selectedTab === 'history' ? (
+                    <>
+                      <div className="history-header flex justify-between items-center mb-6">
+                        <h2 className="text-xl font-semibold text-foreground">
+                          Call History
+                        </h2>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleExportToExcel}
+                            className="export-button bg-reality-gray hover:bg-reality-orange hover:text-white text-white border border-black px-3 py-1 rounded flex items-center gap-1 font-medium transition-colors"
+                            disabled={isLoading || callHistory.length === 0}
+                          >
+                            <span role="img" aria-label="export">
+                              📊
+                            </span>
+                            Export Excel
+                          </button>
+                          <button
+                            onClick={handleManualRefresh}
+                            className="refresh-button bg-reality-gray hover:bg-reality-orange hover:text-white text-white border border-black px-3 py-1 rounded flex items-center gap-1 font-medium transition-colors"
+                            disabled={isLoading}
+                          >
+                            {isLoading ? (
+                              <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-black"></div>
+                            ) : (
+                              <span role="img" aria-label="refresh">
+                                🔄
+                              </span>
+                            )}
+                            Refresh
+                          </button>
+                        </div>
+                      </div>
+                      {isLoading ? (
+                        <div className="flex justify-center items-center py-12">
+                          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black"></div>
+                        </div>
+                      ) : retryCount > 0 ? (
+                        <div className="text-center py-12">
+                          <p className="text-red-500 mb-4">
+                            Failed to load call history after {retryCount} attempts
+                          </p>
+                          <button
+                            onClick={() => {
+                              setRetryCount(0);
+                              setShouldRefreshHistory(true);
+                            }}
+                            className="bg-reality-orange text-white px-4 py-2 rounded hover:bg-reality-amber transition-colors font-semibold"
+                          >
+                            Try Again
+                          </button>
                         </div>
                       ) : (
-                        callHistory.map((call) => (
-                          <div
-                            key={call.id}
-                            className="history-item bg-reality-gray p-4 rounded-lg border border-border"
-                          >
-                            <p className="font-medium mb-2 text-white">
-                              Call #{call.id} -{' '}
-                              {call.description || 'Emergency Call'}
-                            </p>
-                            <div className="call-actions flex gap-2">
-                              <button
-                                className="audio-button bg-reality-gray hover:bg-reality-orange hover:text-white text-white border border-black px-3 py-1 rounded flex items-center gap-1 font-medium transition-colors"
-                                onClick={() =>
-                                  openAudioModal(call.recording_url)
-                                }
-                              >
-                                <span role="img" aria-label="audio">
-                                  🔊
-                                </span>{' '}
-                                Audio
-                              </button>
-                              <button
-                                className="transcription-button bg-reality-gray hover:bg-reality-orange hover:text-white text-white border border-black px-3 py-1 rounded flex items-center gap-1 font-medium transition-colors"
-                                onClick={() =>
-                                  openTranscriptionModal(call.transcript_url)
-                                }
-                              >
-                                <span role="img" aria-label="transcript">
-                                  📝
-                                </span>{' '}
-                                Transcription
-                              </button>
+                        <div
+                          className={`history-list space-y-4 ${callHistory.length > 3
+                            ? 'overflow-y-auto max-h-[calc(100vh-300px)]'
+                            : ''
+                            } pr-2`}
+                        >
+                          {callHistory.length === 0 ? (
+                            <div className="text-center py-12 text-gray-400">
+                              No call history available
                             </div>
-                          </div>
-                        ))
+                          ) : (
+                            callHistory.map((call) => (
+                              <div
+                                key={call.id}
+                                className="history-item bg-reality-gray p-4 rounded-lg border border-border"
+                              >
+                                <p className="font-medium mb-2 text-white">
+                                  Call #{call.id} -{' '}
+                                  {call.description || 'Emergency Call'}
+                                </p>
+                                <div className="call-actions flex gap-2">
+                                  <button
+                                    className="audio-button bg-reality-gray hover:bg-reality-orange hover:text-white text-white border border-black px-3 py-1 rounded flex items-center gap-1 font-medium transition-colors"
+                                    onClick={() =>
+                                      openAudioModal(call.recording_url)
+                                    }
+                                  >
+                                    <span role="img" aria-label="audio">
+                                      🔊
+                                    </span>{' '}
+                                    Audio
+                                  </button>
+                                  <button
+                                    className="transcription-button bg-reality-gray hover:bg-reality-orange hover:text-white text-white border border-black px-3 py-1 rounded flex items-center gap-1 font-medium transition-colors"
+                                    onClick={() =>
+                                      openTranscriptionModal(call.transcript_url)
+                                    }
+                                  >
+                                    <span role="img" aria-label="transcript">
+                                      📝
+                                    </span>{' '}
+                                    Transcription
+                                  </button>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
                       )}
+                    </>
+                  ) : (
+                    <div className="scenarios-tab-content">
+                      <h2 className="text-xl font-semibold text-foreground mb-4">Scenarios</h2>
+                      <div className="space-y-4">
+                        <div className="bg-reality-gray p-4 rounded-lg border border-border">
+                          <h3 className="text-lg font-bold text-white mb-2">Case 1</h3>
+                          {/* Placeholder for Case 1 details */}
+                        </div>
+                        <div className="bg-reality-gray p-4 rounded-lg border border-border">
+                          <h3 className="text-lg font-bold text-white mb-2">Case 2</h3>
+                          {/* Placeholder for Case 2 details */}
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
